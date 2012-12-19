@@ -384,7 +384,8 @@ public class MinecraftReflection {
 	public static ItemStack getBukkitItemStack(ItemStack bukkitItemStack) {
 		if (craftBukkitConstructor == null) {
 			try {
-				craftBukkitConstructor = getCraftItemStackClass().getConstructor(ItemStack.class);
+				craftBukkitConstructor = getCraftItemStackClass().getDeclaredConstructor(ItemStack.class);
+				craftBukkitConstructor.setAccessible(true);
 			} catch (Exception e) {
 				throw new RuntimeException("Cannot find CraftItemStack(org.bukkit.inventory.ItemStack).", e);
 			}
@@ -407,7 +408,8 @@ public class MinecraftReflection {
 	public static ItemStack getBukkitItemStack(Object minecraftItemStack) {
 		if (craftNMSConstructor == null) {
 			try {
-				craftNMSConstructor = getCraftItemStackClass().getConstructor(minecraftItemStack.getClass());
+				craftNMSConstructor = getCraftItemStackClass().getDeclaredConstructor(minecraftItemStack.getClass());
+				craftNMSConstructor.setAccessible(true);
 			} catch (Exception e) {
 				throw new RuntimeException("Cannot find CraftItemStack(net.mineraft.server.ItemStack).", e);
 			}
