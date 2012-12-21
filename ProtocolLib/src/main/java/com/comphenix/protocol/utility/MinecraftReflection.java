@@ -423,7 +423,8 @@ public class MinecraftReflection {
 		
 		if (craftBukkitConstructor == null) {
 			try {
-				craftBukkitConstructor = getCraftItemStackClass().getConstructor(ItemStack.class);
+				craftBukkitConstructor = getCraftItemStackClass().getDeclaredConstructor(ItemStack.class);
+				craftBukkitConstructor.setAccessible(true);
 			} catch (Exception e) {
 				// See if this method works
 				if (!craftItemStackFailed)
@@ -473,7 +474,8 @@ public class MinecraftReflection {
 		
 		if (craftNMSConstructor == null) {
 			try {
-				craftNMSConstructor = getCraftItemStackClass().getConstructor(minecraftItemStack.getClass());
+				craftNMSConstructor = getCraftItemStackClass().getDeclaredConstructor(minecraftItemStack.getClass());
+				craftNMSConstructor.setAccessible(true);
 			} catch (Exception e) {
 				// Give it a try
 				if (!craftItemStackFailed)
