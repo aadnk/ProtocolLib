@@ -108,11 +108,6 @@
 				<artifactId>aspectjrt</artifactId>
 				<version>1.7.2</version>
 			</dependency>
-			<dependency>
-				<groupId>org.aspectj</groupId>
-				<artifactId>aspectjtools</artifactId>
-				<version>1.7.2</version>
-			</dependency>
         </dependencies>
         <executions>
           <execution>
@@ -274,11 +269,6 @@
 	<dependency>
 		<groupId>org.aspectj</groupId>
 		<artifactId>aspectjrt</artifactId>
-		<version>1.7.2</version>
-	</dependency>
-	<dependency>
-		<groupId>org.aspectj</groupId>
-		<artifactId>aspectjtools</artifactId>
 		<version>1.7.2</version>
 	</dependency>
   </dependencies>
