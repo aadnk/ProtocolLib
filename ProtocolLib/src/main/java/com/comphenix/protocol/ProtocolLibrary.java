@@ -139,6 +139,16 @@ public class ProtocolLibrary extends JavaPlugin {
 		// Load configuration
 		logger = getLoggerSafely();
 		
+		// LOGGING VERSION
+		// Print as severe
+		for (String line : ChatExtensions.toFlowerBox(new String[] { 
+				"PROTOCOLIB IS RUNNING IN LOGGING MODE.", 
+				"THIS WILL GENERATE A HUGE LOG FILE, ", 
+				"DO NOT USE ON A PRODUCTION SERVER." }, "*", 3, 1)) {
+			logger.severe(line);
+		}
+		// END LOGGING VERSION
+		
 		// Add global parameters
 		DetailedErrorReporter detailedReporter = new DetailedErrorReporter(this);
 		reporter = getFilteredReporter(detailedReporter);
