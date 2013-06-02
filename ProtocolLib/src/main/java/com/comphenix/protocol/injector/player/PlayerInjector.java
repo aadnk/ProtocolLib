@@ -30,6 +30,8 @@ import org.bukkit.entity.Player;
 
 import com.comphenix.protocol.Packets;
 import com.comphenix.protocol.error.ErrorReporter;
+import com.comphenix.protocol.error.Report;
+import com.comphenix.protocol.error.ReportType;
 import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.events.PacketEvent;
 import com.comphenix.protocol.events.PacketListener;
@@ -43,9 +45,26 @@ import com.comphenix.protocol.reflect.FuzzyReflection;
 import com.comphenix.protocol.reflect.StructureModifier;
 import com.comphenix.protocol.reflect.VolatileField;
 import com.comphenix.protocol.utility.MinecraftReflection;
+import com.comphenix.protocol.utility.MinecraftVersion;
 
-abstract class PlayerInjector implements SocketInjector {
-
+public abstract class PlayerInjector implements SocketInjector {
+	// Disconnect method related reports
+	public static final ReportType REPORT_ASSUME_DISCONNECT_METHOD = new ReportType("Cannot find disconnect method by name. Assuming %s.");
+	public static final ReportType REPORT_INVALID_ARGUMENT_DISCONNECT = new ReportType("Invalid argument passed to disconnect method: %s");
+	public static final ReportType REPORT_CANNOT_ACCESS_DISCONNECT = new ReportType("Unable to access disconnect method.");
+	
+	public static final ReportType REPORT_CANNOT_CLOSE_SOCKET = new ReportType("Unable to close socket.");
+	public static final ReportType REPORT_ACCESS_DENIED_CLOSE_SOCKET = new ReportType("Insufficient permissions. Cannot close socket.");
+	
+	public static final ReportType REPORT_DETECTED_CUSTOM_SERVER_HANDLER = 
+			new ReportType("Detected server handler proxy type by another plugin. Conflict may occur!");
+	public static final ReportType REPORT_CANNOT_PROXY_SERVER_HANDLER = new ReportType("Unable to load server handler from proxy type.");
+	
+	public static final ReportType REPORT_CANNOT_UPDATE_PLAYER = new ReportType("Cannot update player in PlayerEvent.");
+	public static final ReportType REPORT_CANNOT_HANDLE_PACKET = new ReportType("Cannot handle server packet.");
+	
+	public static final ReportType REPORT_INVALID_NETWORK_MANAGER = new ReportType("NetworkManager doesn't appear to be valid.");
+	
 	// Net login handler stuff
 	private static Field netLoginNetworkField;
 	
@@ -279,6 +298,9 @@ abstract class PlayerInjector implements SocketInjector {
 			return socketAddress;
 			
 		} catch (IndexOutOfBoundsException e) {
+			// Inform about the state of the network manager too
+			reporter.reportWarning(
+					this, Report.newBuilder(REPORT_INVALID_NETWORK_MANAGER).callerParam(networkManager).build());
 			throw new IllegalAccessException("Unable to read the socket address field.");
 		}
 	}
@@ -304,7 +326,7 @@ abstract class PlayerInjector implements SocketInjector {
 				} catch (IllegalArgumentException e) {
 					// Just assume it's the first String method
 					disconnect = FuzzyReflection.fromObject(handler).getMethodByParameters("disconnect", String.class);
-					reporter.reportWarning(this, "Cannot find disconnect method by name. Assuming " + disconnect);
+					reporter.reportWarning(this, Report.newBuilder(REPORT_ASSUME_DISCONNECT_METHOD).messageParam(disconnect));
 				}
 				
 				// Save the method for later
@@ -318,9 +340,9 @@ abstract class PlayerInjector implements SocketInjector {
 				disconnect.invoke(handler, message);
 				return;
 			} catch (IllegalArgumentException e) {
-				reporter.reportDetailed(this, "Invalid argument passed to disconnect method: " + message, e, handler);
+				reporter.reportDetailed(this, Report.newBuilder(REPORT_INVALID_ARGUMENT_DISCONNECT).error(e).messageParam(message).callerParam(handler));
 			} catch (IllegalAccessException e) {
-				reporter.reportWarning(this, "Unable to access disconnect method.", e);
+				reporter.reportWarning(this, Report.newBuilder(REPORT_CANNOT_ACCESS_DISCONNECT).error(e));
 			}
 		}
 		
@@ -331,32 +353,34 @@ abstract class PlayerInjector implements SocketInjector {
 			try {
 				socket.close();
 			} catch (IOException e) {
-				reporter.reportDetailed(this, "Unable to close socket.", e, socket);
+				reporter.reportDetailed(this, Report.newBuilder(REPORT_CANNOT_CLOSE_SOCKET).error(e).callerParam(socket));
 			}
 			
 		} catch (IllegalAccessException e) {
-			reporter.reportWarning(this, "Insufficient permissions. Cannot close socket.", e);
+			reporter.reportWarning(this, Report.newBuilder(REPORT_ACCESS_DENIED_CLOSE_SOCKET).error(e));
 		}
 	}
 	
 	private Field getProxyField(Object notchEntity, Field serverField) {
-
 		try {
-			Object handler = FieldUtils.readField(serverHandlerField, notchEntity, true);
+			Object currentHandler = FieldUtils.readField(serverHandlerField, notchEntity, true);
+
+			// This is bad
+			if (currentHandler == null)
+				throw new IllegalAccessError("Unable to fetch server handler: was NUll.");
 			
-			// Is this a Minecraft hook?
-			if (handler != null && !MinecraftReflection.isMinecraftObject(handler)) {
-				
+			// See if this isn't a standard net handler class
+			if (!isStandardMinecraftNetHandler(currentHandler)) {
 				// This is our proxy object
-				if (handler instanceof Factory)
+				if (currentHandler instanceof Factory)
 					return null;
 				
 				hasProxyType = true;
-				reporter.reportWarning(this, "Detected server handler proxy type by another plugin. Conflict may occur!");
+				reporter.reportWarning(this, Report.newBuilder(REPORT_DETECTED_CUSTOM_SERVER_HANDLER).callerParam(serverField));
 				
 				// No? Is it a Proxy type?
 				try {
-					FuzzyReflection reflection = FuzzyReflection.fromObject(handler, true);
+					FuzzyReflection reflection = FuzzyReflection.fromObject(currentHandler, true);
 					
 					// It might be
 					return reflection.getFieldByType("NetServerHandler", MinecraftReflection.getNetServerHandlerClass());
@@ -367,11 +391,25 @@ abstract class PlayerInjector implements SocketInjector {
 			}
 			
 		} catch (IllegalAccessException e) {
-			reporter.reportWarning(this, "Unable to load server handler from proxy type.");
+			reporter.reportWarning(this, Report.newBuilder(REPORT_CANNOT_PROXY_SERVER_HANDLER).error(e).callerParam(notchEntity, serverField));
 		}
 
 		// Nope, just go with it
 		return null;
+	}
+	
+	/**
+	 * Determine if a given object is a standard Minecraft net handler.
+	 * @param obj the object to test.
+	 * @return TRUE if it is, FALSE otherwise.
+	 */
+	private boolean isStandardMinecraftNetHandler(Object obj) {
+		if (obj == null)
+			return false;
+		Class<?> clazz = obj.getClass();
+		
+		return MinecraftReflection.getNetLoginHandlerClass().equals(clazz) ||
+			   MinecraftReflection.getNetServerHandlerClass().equals(clazz);
 	}
 	
 	/**
@@ -508,11 +546,13 @@ abstract class PlayerInjector implements SocketInjector {
 	 * Invoked before a new listener is registered.
 	 * <p>
 	 * The player injector should only return a non-null value if some or all of the packet IDs are unsupported.
+	 * @param version 
 	 * 
+	 * @param version - the current Minecraft version, or NULL if unknown.
 	 * @param listener - the listener that is about to be registered.
 	 * @return A error message with the unsupported packet IDs, or NULL if this listener is valid.
 	 */
-	public abstract UnsupportedListener checkListener(PacketListener listener);
+	public abstract UnsupportedListener checkListener(MinecraftVersion version, PacketListener listener);
 	
 	/**
 	 * Allows a packet to be sent by the listeners.
@@ -531,7 +571,7 @@ abstract class PlayerInjector implements SocketInjector {
 					try {
 						updatedPlayer = (Player) MinecraftReflection.getBukkitEntity(getEntityPlayer(getNetHandler()));
 					} catch (IllegalAccessException e) {
-						reporter.reportDetailed(this, "Cannot update player in PlayerEvent.", e, packet);
+						reporter.reportDetailed(this, Report.newBuilder(REPORT_CANNOT_UPDATE_PLAYER).error(e).callerParam(packet));
 					}
 				}
 				
@@ -556,7 +596,7 @@ abstract class PlayerInjector implements SocketInjector {
 			}
 			
 		} catch (Throwable e) {
-			reporter.reportDetailed(this, "Cannot handle server packet.", e, packet);
+			reporter.reportDetailed(this, Report.newBuilder(REPORT_CANNOT_HANDLE_PACKET).error(e).callerParam(packet));
 		}
 		
 		return packet;
@@ -639,10 +679,7 @@ abstract class PlayerInjector implements SocketInjector {
 		// Do nothing
 	}
 	
-	/**
-	 * Set the real Bukkit player that we will use.
-	 * @param updatedPlayer - the real Bukkit player.
-	 */
+	@Override
 	public void setUpdatedPlayer(Player updatedPlayer) {
 		this.updatedPlayer = updatedPlayer;
 	}
