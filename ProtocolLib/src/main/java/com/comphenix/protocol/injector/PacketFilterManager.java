@@ -46,13 +46,16 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.PluginManager;
 
 import com.comphenix.protocol.AsynchronousManager;
+import com.comphenix.protocol.Packets;
 import com.comphenix.protocol.ProtocolManager;
 import com.comphenix.protocol.async.AsyncFilterManager;
 import com.comphenix.protocol.async.AsyncMarker;
+import com.comphenix.protocol.concurrency.IntegerSet;
 import com.comphenix.protocol.error.ErrorReporter;
 import com.comphenix.protocol.error.Report;
 import com.comphenix.protocol.error.ReportType;
 import com.comphenix.protocol.events.*;
+import com.comphenix.protocol.injector.packet.InterceptWritePacket;
 import com.comphenix.protocol.injector.packet.PacketInjector;
 import com.comphenix.protocol.injector.packet.PacketInjectorBuilder;
 import com.comphenix.protocol.injector.packet.PacketRegistry;
@@ -68,7 +71,8 @@ import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableSet;
 
-public final class PacketFilterManager implements ProtocolManager, ListenerInvoker {
+public final class PacketFilterManager implements ProtocolManager, ListenerInvoker, InternalManager {
+	
 	public static final ReportType REPORT_CANNOT_LOAD_PACKET_LIST = new ReportType("Cannot load server and client packet list.");
 	public static final ReportType REPORT_CANNOT_INITIALIZE_PACKET_INJECTOR = new ReportType("Unable to initialize packet injector");
 	
@@ -85,6 +89,7 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 	public static final ReportType REPORT_CANNOT_INJECT_PLAYER = new ReportType("Unable to inject player.");
 
 	public static final ReportType REPORT_CANNOT_UNREGISTER_PLUGIN = new ReportType("Unable to handle disabled plugin.");
+	public static final ReportType REPORT_PLUGIN_VERIFIER_ERROR = new ReportType("Verifier error: %s");
 	
 	/**
 	 * Sets the inject hook type. Different types allow for maximum compatibility.
@@ -133,6 +138,12 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 	// Different injection types per game phase
 	private PlayerInjectionHandler playerInjection;
 
+	// Intercepting write packet methods
+	private InterceptWritePacket interceptWritePacket;
+	
+	// Whether or not a packet must be input buffered
+	private volatile IntegerSet inputBufferedPackets = new IntegerSet(Packets.MAXIMUM_PACKET_ID + 1);
+	
 	// The two listener containers
 	private SortedPacketListenerList recievedListeners;
 	private SortedPacketListenerList sendingListeners;
@@ -169,40 +180,13 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 	// Plugin verifier
 	private PluginVerifier pluginVerifier;
 	
-	/**
-	 * Only create instances of this class if protocol lib is disabled.
-	 */
-	public PacketFilterManager(ClassLoader classLoader, Server server, Plugin library, DelayedSingleTask unhookTask, ErrorReporter reporter) {
-		this(classLoader, server, library, new MinecraftVersion(server), unhookTask, reporter);
-	}
+	// The current Minecraft version
+	private MinecraftVersion minecraftVersion;
 	
 	/**
 	 * Only create instances of this class if protocol lib is disabled.
 	 */
-	public PacketFilterManager(ClassLoader classLoader, Server server, Plugin library, 
-							   MinecraftVersion mcVersion, DelayedSingleTask unhookTask, ErrorReporter reporter) {
-		
-		if (reporter == null)
-			throw new IllegalArgumentException("reporter cannot be NULL.");
-		if (classLoader == null)
-			throw new IllegalArgumentException("classLoader cannot be NULL.");
-		
-		// Just boilerplate
-		final DelayedSingleTask finalUnhookTask = unhookTask;
-		
-		// Listener containers
-		this.recievedListeners = new SortedPacketListenerList();
-		this.sendingListeners = new SortedPacketListenerList();
-		
-		// References
-		this.unhookTask = unhookTask;
-		this.server = server;
-		this.classLoader = classLoader;
-		this.reporter = reporter;
-		
-		// The plugin verifier
-		this.pluginVerifier = new PluginVerifier(library);
-		
+	public PacketFilterManager(PacketFilterBuilder builder) {		
 		// Used to determine if injection is needed
 		Predicate<GamePhase> isInjectionNecessary = new Predicate<GamePhase>() {
 			@Override
@@ -213,58 +197,84 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 					result &= getPhaseLoginCount() > 0;
 				// Note that we will still hook players if the unhooking has been delayed
 				if (phase.hasPlaying())
-					result &= getPhasePlayingCount() > 0 || finalUnhookTask.isRunning();
+					result &= getPhasePlayingCount() > 0 || unhookTask.isRunning();
 				return result;
 			}
 		};
 		
+		// Listener containers
+		this.recievedListeners = new SortedPacketListenerList();
+		this.sendingListeners = new SortedPacketListenerList();
+		
+		// References
+		this.unhookTask = builder.getUnhookTask();
+		this.server = builder.getServer();
+		this.classLoader = builder.getClassLoader();
+		this.reporter = builder.getReporter();
+		
+		// The plugin verifier
+		this.pluginVerifier = new PluginVerifier(builder.getLibrary());
+		this.minecraftVersion = builder.getMinecraftVersion();
+		
+		// The write packet interceptor
+		this.interceptWritePacket = new InterceptWritePacket(classLoader, reporter);
+		
+		// Use the correct injection type
+		if (builder.isNettyEnabled()) {
+			this.spigotInjector = new SpigotPacketInjector(classLoader, reporter, this, server);
+			this.playerInjection = spigotInjector.getPlayerHandler();
+			this.packetInjector = spigotInjector.getPacketInjector();
+			
+			// Set real injector, in case we need it
+			spigotInjector.setProxyPacketInjector(PacketInjectorBuilder.newBuilder().
+					invoker(this).
+					reporter(reporter).
+					classLoader(classLoader).
+					playerInjection(playerInjection).
+					buildInjector()
+			);
+			
+		} else {
+			// Initialize standard injection mangers
+			this.playerInjection = PlayerInjectorBuilder.newBuilder().
+					invoker(this).
+					server(server).
+					reporter(reporter).
+					classLoader(classLoader).
+					packetListeners(packetListeners).
+					injectionFilter(isInjectionNecessary).
+					version(builder.getMinecraftVersion()).
+					buildHandler();
+			
+			this.packetInjector = PacketInjectorBuilder.newBuilder().
+					invoker(this).
+					reporter(reporter).
+					classLoader(classLoader).
+					playerInjection(playerInjection).
+					buildInjector();
+		}
+		this.asyncFilterManager = builder.getAsyncManager();
+		
+		// Attempt to load the list of server and client packets
 		try {
-			// Spigot
-			if (SpigotPacketInjector.canUseSpigotListener()) {
-				spigotInjector = new SpigotPacketInjector(classLoader, reporter, this, server);
-				this.playerInjection = spigotInjector.getPlayerHandler();
-				this.packetInjector = spigotInjector.getPacketInjector();
-				
-			} else {
-				// Initialize standard injection mangers
-				this.playerInjection = PlayerInjectorBuilder.newBuilder().
-						invoker(this).
-						server(server).
-						reporter(reporter).
-						classLoader(classLoader).
-						packetListeners(packetListeners).
-						injectionFilter(isInjectionNecessary).
-						version(mcVersion).
-						buildHandler();
-			
-				this.packetInjector = PacketInjectorBuilder.newBuilder().
-						invoker(this).
-						reporter(reporter).
-						classLoader(classLoader).
-						playerInjection(playerInjection).
-						buildInjector();
-			}
-
-			this.asyncFilterManager = new AsyncFilterManager(reporter, server.getScheduler(), this);
-			
-			// Attempt to load the list of server and client packets
-			try {
-				knowsServerPackets = PacketRegistry.getServerPackets() != null;
-				knowsClientPackets = PacketRegistry.getClientPackets() != null;
-			} catch (FieldAccessException e) {
-				reporter.reportWarning(this, Report.newBuilder(REPORT_CANNOT_LOAD_PACKET_LIST).error(e));
-			}
-
+			knowsServerPackets = PacketRegistry.getServerPackets() != null;
+			knowsClientPackets = PacketRegistry.getClientPackets() != null;
 		} catch (FieldAccessException e) {
-			reporter.reportWarning(this, Report.newBuilder(REPORT_CANNOT_INITIALIZE_PACKET_INJECTOR).error(e));
+			reporter.reportWarning(this, Report.newBuilder(REPORT_CANNOT_LOAD_PACKET_LIST).error(e));
 		}
 	}
-	
+
 	/**
-	 * Initiate logic that is performed after the world has loaded.
+	 * Construct a new packet filter builder.
+	 * @return New builder.
 	 */
-	public void postWorldLoaded() {
-		playerInjection.postWorldLoaded();
+	public static PacketFilterBuilder newBuilder() {
+		return new PacketFilterBuilder();
+	}
+	
+	@Override
+	public MinecraftVersion getMinecraftVersion() {
+		return minecraftVersion;
 	}
 	
 	@Override
@@ -276,6 +286,7 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 	 * Retrieves how the server packets are read.
 	 * @return Injection method for reading server packets.
 	 */
+	@Override
 	public PlayerInjectHooks getPlayerHook() {
 		return playerInjection.getPlayerHook();
 	}
@@ -284,6 +295,7 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 	 * Sets how the server packets are read.
 	 * @param playerHook - the new injection method for reading server packets.
 	 */
+	@Override
 	public void setPlayerHook(PlayerInjectHooks playerHook) {
 		playerInjection.setPlayerHook(playerHook);
 	}
@@ -293,17 +305,26 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 		return ImmutableSet.copyOf(packetListeners);
 	}
 
+	@Override
+	public InterceptWritePacket getInterceptWritePacket() {
+		return interceptWritePacket;
+	}
+	
 	/**
 	 * Warn of common programming mistakes.
 	 * @param plugin - plugin to check.
 	 */
 	private void printPluginWarnings(Plugin plugin) {
-		switch (pluginVerifier.verify(plugin)) {
-			case NO_DEPEND:
-				reporter.reportWarning(this, Report.newBuilder(REPORT_PLUGIN_DEPEND_MISSING).messageParam(plugin.getName()));
-			case VALID:
-				// Do nothing
-				break;
+		try {
+			switch (pluginVerifier.verify(plugin)) {
+				case NO_DEPEND:
+					reporter.reportWarning(this, Report.newBuilder(REPORT_PLUGIN_DEPEND_MISSING).messageParam(plugin.getName()));
+				case VALID:
+					// Do nothing
+					break;
+			}
+		} catch (IllegalStateException e) {
+			reporter.reportWarning(this, Report.newBuilder(REPORT_PLUGIN_VERIFIER_ERROR).messageParam(e.getMessage()));
 		}
 	}
 	
@@ -326,6 +347,11 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 		if (hasSending || hasReceiving) {
 			// Add listeners and hooks
 			if (hasSending) {
+				// This doesn't make any sense
+				if (sending.getOptions().contains(ListenerOptions.INTERCEPT_INPUT_BUFFER)) {
+					throw new IllegalArgumentException("Sending whitelist cannot require input bufferes to be intercepted.");
+				}
+				
 				verifyWhitelist(listener, sending);
 				sendingListeners.addListener(listener, sending);
 				enablePacketFilters(listener, ConnectionSide.SERVER_SIDE, sending.getWhitelist());
@@ -347,9 +373,31 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 			
 			// Inform our injected hooks
 			packetListeners.add(listener);
+			updateRequireInputBuffers();
 		}
 	}
 	
+	/**
+	 * Invoked when we need to update the input buffer set.
+	 */
+	private void updateRequireInputBuffers() {
+		IntegerSet updated = new IntegerSet(Packets.MAXIMUM_PACKET_ID + 1);
+		
+		for (PacketListener listener : packetListeners) {
+			ListeningWhitelist whitelist = listener.getReceivingWhitelist();
+			
+			// We only check the recieving whitelist
+			if (whitelist.getOptions().contains(ListenerOptions.INTERCEPT_INPUT_BUFFER)) {
+				for (int id : whitelist.getWhitelist()) {
+					updated.add(id);
+				}
+			}
+		}
+		// Update it
+		this.inputBufferedPackets = updated;
+		this.packetInjector.inputBuffersChanged(updated.toSet());
+	}
+
 	/**
 	 * Invoked to handle the different game phases of a added listener.
 	 * @param phase - listener's game game phase.
@@ -440,6 +488,7 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 			disablePacketFilters(ConnectionSide.SERVER_SIDE, sendingRemoved);
 		if (receivingRemoved != null && receivingRemoved.size() > 0)
 			disablePacketFilters(ConnectionSide.CLIENT_SIDE, receivingRemoved);
+		updateRequireInputBuffers();
 	}
 	
 	@Override
@@ -469,6 +518,11 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 		if (!hasClosed) {
 			handlePacket(sendingListeners, event, true);
 		}
+	}
+
+	@Override
+	public boolean requireInputBuffer(int packetId) {
+		return inputBufferedPackets.contains(packetId);
 	}
 	
 	/**
@@ -565,11 +619,16 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 	
 	@Override
 	public void sendServerPacket(Player reciever, PacketContainer packet) throws InvocationTargetException {
-		sendServerPacket(reciever, packet, true);
+		sendServerPacket(reciever, packet, null, true);
 	}
 	
 	@Override
 	public void sendServerPacket(Player reciever, PacketContainer packet, boolean filters) throws InvocationTargetException {
+		sendServerPacket(reciever, packet, null, true);
+	}
+	
+	@Override
+	public void sendServerPacket(Player reciever, PacketContainer packet, NetworkMarker marker, boolean filters) throws InvocationTargetException {
 		if (reciever == null)
 			throw new IllegalArgumentException("reciever cannot be NULL.");
 		if (packet == null)
@@ -577,25 +636,30 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 		// We may have to enable player injection indefinitely after this
 		if (packetCreation.compareAndSet(false, true)) 
 			incrementPhases(GamePhase.PLAYING);
-		
+	
 		// Inform the MONITOR packets
 		if (!filters) {
+			PacketEvent event = PacketEvent.fromServer(this, packet, marker, reciever);
+			
 			sendingListeners.invokePacketSending(
-					reporter, 
-					PacketEvent.fromServer(this, packet, reciever), 
-					ListenerPriority.MONITOR);
+					reporter, event, ListenerPriority.MONITOR);
+			marker = event.getNetworkMarker();
 		}
-		
-		playerInjection.sendServerPacket(reciever, packet, filters);
+		playerInjection.sendServerPacket(reciever, packet, marker, filters);
 	}
 
 	@Override
 	public void recieveClientPacket(Player sender, PacketContainer packet) throws IllegalAccessException, InvocationTargetException {
-		recieveClientPacket(sender, packet, true);
+		recieveClientPacket(sender, packet, null, true);
 	}
 	
 	@Override
 	public void recieveClientPacket(Player sender, PacketContainer packet, boolean filters) throws IllegalAccessException, InvocationTargetException {
+		recieveClientPacket(sender, packet, null, true);
+	}
+	
+	@Override
+	public void recieveClientPacket(Player sender, PacketContainer packet, NetworkMarker marker, boolean filters) throws IllegalAccessException, InvocationTargetException {
 		if (sender == null)
 			throw new IllegalArgumentException("sender cannot be NULL.");
 		if (packet == null)
@@ -610,7 +674,8 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 		packetInjector.undoCancel(packet.getID(), mcPacket);
 		
 		if (filters) {
-			PacketEvent event  = packetInjector.packetRecieved(packet, sender);
+			byte[] data = NetworkMarker.getByteBuffer(marker);
+			PacketEvent event  = packetInjector.packetRecieved(packet, sender, data);
 			
 			if (!event.isCancelled())
 				mcPacket = event.getPacket().getHandle();
@@ -621,7 +686,7 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 			// Let the monitors know though
 			recievedListeners.invokePacketSending(
 					reporter, 
-					PacketEvent.fromClient(this, packet, sender), 
+					PacketEvent.fromClient(this, packet, marker, sender), 
 					ListenerPriority.MONITOR);
 		}
 		
@@ -702,6 +767,7 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 	 * @param manager - Bukkit plugin manager that provides player join/leave events.
 	 * @param plugin - the parent plugin.
 	 */
+	@Override
 	public void registerEvents(PluginManager manager, final Plugin plugin) {
 		if (spigotInjector != null && !spigotInjector.register(plugin))
 			throw new IllegalArgumentException("Spigot has already been registered.");
@@ -969,9 +1035,7 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 		return hasClosed;
 	}
 	
-	/**
-	 * Called when ProtocolLib is closing.
-	 */
+	@Override
 	public void close() {
 		// Guard
 		if (hasClosed)
@@ -989,6 +1053,9 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 		packetListeners.clear();
 		recievedListeners = null;
 		sendingListeners = null;
+		
+		// Also cleanup the interceptor for the write packet method
+		interceptWritePacket.cleanup();
 		
 		// Clean up async handlers. We have to do this last.
 		asyncFilterManager.cleanupAll();

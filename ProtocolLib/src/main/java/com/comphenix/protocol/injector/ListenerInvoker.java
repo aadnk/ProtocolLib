@@ -18,6 +18,7 @@
 package com.comphenix.protocol.injector;
 
 import com.comphenix.protocol.events.PacketEvent;
+import com.comphenix.protocol.injector.packet.InterceptWritePacket;
 
 /**
  * Represents an object that initiate the packet listeners.
@@ -45,6 +46,19 @@ public interface ListenerInvoker {
 	 */
 	public abstract int getPacketID(Object packet);
 
+	/**
+	 * Retrieve the object responsible for intercepting write packets.
+	 * @return Object that intercepts write packets.
+	 */
+	public InterceptWritePacket getInterceptWritePacket();
+	
+	/**
+	 * Determine if a given packet requires input buffering.
+	 * @param packetId - the packet to check.
+	 * @return TRUE if it does, FALSE otherwise.
+	 */
+	public boolean requireInputBuffer(int packetId);
+	
 	/**
 	 * Associate a given class with the given packet ID. Internal method.
 	 * @param clazz - class to associate.

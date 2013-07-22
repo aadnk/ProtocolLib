@@ -6,7 +6,9 @@ import java.net.InetSocketAddress;
 import java.util.Set;
 import org.bukkit.entity.Player;
 
+import com.comphenix.protocol.events.NetworkMarker;
 import com.comphenix.protocol.events.PacketContainer;
+import com.comphenix.protocol.events.PacketEvent;
 import com.comphenix.protocol.events.PacketListener;
 import com.comphenix.protocol.injector.GamePhase;
 import com.comphenix.protocol.injector.PacketFilterManager.PlayerInjectHooks;
@@ -113,10 +115,11 @@ public interface PlayerInjectionHandler {
 	 * Send the given packet to the given reciever.
 	 * @param reciever - the player receiver.
 	 * @param packet - the packet to send.
+	 * @param marker 
 	 * @param filters - whether or not to invoke the packet filters.
 	 * @throws InvocationTargetException If an error occured during sending.
 	 */
-	public abstract void sendServerPacket(Player reciever, PacketContainer packet, boolean filters)
+	public abstract void sendServerPacket(Player reciever, PacketContainer packet, NetworkMarker marker, boolean filters)
 			throws InvocationTargetException;
 
 	/**
@@ -158,12 +161,22 @@ public interface PlayerInjectionHandler {
 	public abstract Set<Integer> getSendingFilters();
 
 	/**
+	 * Whether or not this player injection handler can also recieve packets.
+	 * @return TRUE if it can, FALSE otherwise.
+	 */
+	public abstract boolean canRecievePackets();
+	
+	/**
+	 * Invoked if this player injection handler can process recieved packets.
+	 * @param packet - the recieved packet.
+	 * @param input - the input stream.
+	 * @param buffered - the buffered packet.
+	 * @return The packet event.
+	 */
+	public abstract PacketEvent handlePacketRecieved(PacketContainer packet, DataInputStream input, byte[] buffered);
+	
+	/**
 	 * Close any lingering proxy injections.
 	 */
 	public abstract void close();
-
-	/**
-	 * Perform any action that must be delayed until the world(s) has loaded.
-	 */
-	public abstract void postWorldLoaded();
 }

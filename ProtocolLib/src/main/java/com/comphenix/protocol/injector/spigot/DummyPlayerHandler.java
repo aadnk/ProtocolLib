@@ -7,7 +7,9 @@ import java.util.Set;
 import org.bukkit.entity.Player;
 
 import com.comphenix.protocol.concurrency.IntegerSet;
+import com.comphenix.protocol.events.NetworkMarker;
 import com.comphenix.protocol.events.PacketContainer;
+import com.comphenix.protocol.events.PacketEvent;
 import com.comphenix.protocol.events.PacketListener;
 import com.comphenix.protocol.injector.GamePhase;
 import com.comphenix.protocol.injector.PacketFilterManager.PlayerInjectHooks;
@@ -69,8 +71,8 @@ class DummyPlayerHandler implements PlayerInjectionHandler {
 	}
 	
 	@Override
-	public void sendServerPacket(Player reciever, PacketContainer packet, boolean filters) throws InvocationTargetException {
-		injector.sendServerPacket(reciever, packet, filters);
+	public void sendServerPacket(Player reciever, PacketContainer packet, NetworkMarker marker, boolean filters) throws InvocationTargetException {
+		injector.sendServerPacket(reciever, packet, marker, filters);
 	}
 
 	@Override
@@ -95,6 +97,20 @@ class DummyPlayerHandler implements PlayerInjectionHandler {
 	}
 	
 	@Override
+	public boolean canRecievePackets() {
+		return true;
+	}
+
+	@Override
+	public PacketEvent handlePacketRecieved(PacketContainer packet, DataInputStream input, byte[] buffered) {
+		// Associate this buffered data
+		if (buffered != null) {
+			injector.saveBuffered(packet.getHandle(), buffered);
+		}
+		return null;
+	}
+	
+	@Override
 	public PlayerInjectHooks getPlayerHook() {
 		// Pretend that we do
 		return PlayerInjectHooks.NETWORK_SERVER_OBJECT;
@@ -114,12 +130,7 @@ class DummyPlayerHandler implements PlayerInjectionHandler {
 	public void checkListener(Set<PacketListener> listeners) {
 		// Yes, really
 	}
-
-	@Override
-	public void postWorldLoaded() {
-		// Do nothing
-	}
-
+	
 	@Override
 	public void updatePlayer(Player player) {
 		// Do nothing

@@ -21,9 +21,11 @@ import java.io.DataInputStream;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.InvocationTargetException;
 import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.net.SocketAddress;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 
 import net.sf.cglib.proxy.Factory;
@@ -37,8 +39,10 @@ import com.comphenix.protocol.concurrency.IntegerSet;
 import com.comphenix.protocol.error.ErrorReporter;
 import com.comphenix.protocol.error.Report;
 import com.comphenix.protocol.error.ReportType;
+import com.comphenix.protocol.events.NetworkMarker;
 import com.comphenix.protocol.events.PacketAdapter;
 import com.comphenix.protocol.events.PacketContainer;
+import com.comphenix.protocol.events.PacketEvent;
 import com.comphenix.protocol.events.PacketListener;
 import com.comphenix.protocol.injector.GamePhase;
 import com.comphenix.protocol.injector.ListenerInvoker;
@@ -50,10 +54,10 @@ import com.comphenix.protocol.injector.server.InputStreamLookupBuilder;
 import com.comphenix.protocol.injector.server.SocketInjector;
 import com.comphenix.protocol.utility.MinecraftReflection;
 import com.comphenix.protocol.utility.MinecraftVersion;
+import com.comphenix.protocol.utility.SafeCacheBuilder;
 
+import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Maps;
 
 /**
@@ -85,8 +89,8 @@ class ProxyPlayerInjectionHandler implements PlayerInjectionHandler {
 	private WeakReference<PlayerInjector> lastSuccessfulHook;
 	
 	// Dummy injection
-	private Cache<Player, PlayerInjector> dummyInjectors = 
-			CacheBuilder.newBuilder().
+	private ConcurrentMap<Player, PlayerInjector> dummyInjectors = 
+			SafeCacheBuilder.newBuilder().
 			expireAfterWrite(30, TimeUnit.SECONDS).
 			build(BlockingHashMap.<Player, PlayerInjector>newInvalidCacheLoader());
 	
@@ -141,14 +145,6 @@ class ProxyPlayerInjectionHandler implements PlayerInjectionHandler {
 		this.netLoginInjector = new NetLoginInjector(reporter, server, this);
 		this.serverInjection = new InjectedServerConnection(reporter, inputStreamLookup, server, netLoginInjector);
 		serverInjection.injectList();
-	}
-	
-	@Override
-	public void postWorldLoaded() {
-		// This will actually create a socket and a seperate thread ...
-		if (inputStreamLookup != null) {
-			inputStreamLookup.postWorldLoaded();
-		}
 	}
 
 	/**
@@ -350,6 +346,7 @@ class ProxyPlayerInjectionHandler implements PlayerInjectionHandler {
 							return null;
 						
 						SocketInjector previous = inputStreamLookup.peekSocketInjector(address);
+						Socket socket = injector.getSocket();
 
 						// Close any previously associated hooks before we proceed
 						if (previous != null && !(player instanceof Factory)) {
@@ -363,8 +360,7 @@ class ProxyPlayerInjectionHandler implements PlayerInjectionHandler {
 						}
 						injector.injectManager();
 						
-						// Save injector
-						inputStreamLookup.setSocketInjector(address, injector);
+						saveAddressLookup(address, socket, injector);
 						break;
 					}
 					
@@ -413,6 +409,17 @@ class ProxyPlayerInjectionHandler implements PlayerInjectionHandler {
 		return injector;
 	}
 
+	private void saveAddressLookup(SocketAddress address, Socket socket, SocketInjector injector) {
+		SocketAddress socketAddress = socket != null ? socket.getRemoteSocketAddress() : null;
+		
+		if (socketAddress != null && !Objects.equal(socketAddress, address)) {
+			// Save this version as well
+			inputStreamLookup.setSocketInjector(socketAddress, injector);
+		}
+		// Save injector
+		inputStreamLookup.setSocketInjector(address, injector);
+	}
+	
 	private void cleanupHook(PlayerInjector injector) {
 		// Clean up as much as possible
 		try {
@@ -528,12 +535,12 @@ class ProxyPlayerInjectionHandler implements PlayerInjectionHandler {
 	 * @throws InvocationTargetException If an error occured during sending.
 	 */
 	@Override
-	public void sendServerPacket(Player reciever, PacketContainer packet, boolean filters) throws InvocationTargetException {
+	public void sendServerPacket(Player reciever, PacketContainer packet, NetworkMarker marker, boolean filters) throws InvocationTargetException {
 		SocketInjector injector = getInjector(reciever);
 		
 		// Send the packet, or drop it completely
 		if (injector != null) {
-			injector.sendServerPacket(packet.getHandle(), filters);
+			injector.sendServerPacket(packet.getHandle(), marker, filters);
 		} else {
 			throw new PlayerLoggedOutException(String.format(
 					"Unable to send packet %s (%s): Player %s has logged out.", 
@@ -615,7 +622,7 @@ class ProxyPlayerInjectionHandler implements PlayerInjectionHandler {
 			}
 			
 			inputStreamLookup.setSocketInjector(dummyInjector.getAddress(), dummyInjector);
-			dummyInjectors.asMap().put(player, dummyInjector);
+			dummyInjectors.put(player, dummyInjector);
 			return dummyInjector;
 			
 		} catch (IllegalAccessException e) {
@@ -641,6 +648,16 @@ class ProxyPlayerInjectionHandler implements PlayerInjectionHandler {
 		
 		// None found
 		return null;
+	}
+	
+	@Override
+	public boolean canRecievePackets() {
+		return false;
+	}
+	
+	@Override
+	public PacketEvent handlePacketRecieved(PacketContainer packet, DataInputStream input, byte[] buffered) {
+		throw new UnsupportedOperationException("Proxy injection cannot handle recieved packets.");
 	}
 	
 	/**

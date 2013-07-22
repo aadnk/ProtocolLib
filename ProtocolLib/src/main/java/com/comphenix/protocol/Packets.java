@@ -36,6 +36,11 @@ public final class Packets {
 	public static final int MAXIMUM_PACKET_ID = 255;
 	
 	/**
+	 * The maximum number of unique packet IDs. It's unlikely this will ever change.
+	 */
+	public static final int PACKET_COUNT = 256;
+	
+	/**
 	 * List of packets sent only by the server.
 	 * @author Kristian
 	 */
@@ -95,6 +100,7 @@ public final class Packets {
 		public static final int MOB_EFFECT = 41;
 		public static final int REMOVE_MOB_EFFECT = 42;
 		public static final int SET_EXPERIENCE = 43;
+		public static final int UPDATE_ATTRIBUTES = 44;
 		public static final int MAP_CHUNK = 51;
 		public static final int MULTI_BLOCK_CHANGE = 52;
 		public static final int BLOCK_CHANGE = 53;
@@ -122,6 +128,7 @@ public final class Packets {
 		 * Remember to clone the packet if you are modifying it.
 		 */
 		public static final int TILE_ENTITY_DATA = 132;
+		public static final int OPEN_TILE_ENTITY = 133;
 		public static final int STATISTIC = 200;
 		public static final int PLAYER_INFO = 201;
 		public static final int ABILITIES = 202;
@@ -199,6 +206,7 @@ public final class Packets {
 		public static final int BLOCK_ITEM_SWITCH = 16;
 		public static final int ARM_ANIMATION = 18;
 		public static final int ENTITY_ACTION = 19;
+		public static final int PLAYER_INPUT = 27;
 		public static final int CLOSE_WINDOW = 101;
 		public static final int WINDOW_CLICK = 102;
 		public static final int TRANSACTION = 106;

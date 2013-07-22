@@ -7,8 +7,6 @@ import java.util.regex.Pattern;
 
 import javax.annotation.Nonnull;
 
-import org.apache.commons.lang.NotImplementedException;
-
 import com.comphenix.protocol.reflect.MethodInfo;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
@@ -65,7 +63,7 @@ public class FuzzyMethodContract extends AbstractFuzzyMember<MethodInfo> {
 
 		@Override
 		public boolean isMatch(Class<?>[] value, Object parent) {
-			throw new NotImplementedException("Use the parameter match instead.");
+			throw new UnsupportedOperationException("Use the parameter match instead.");
 		}
 
 		@Override
@@ -161,12 +159,24 @@ public class FuzzyMethodContract extends AbstractFuzzyMember<MethodInfo> {
 		/**
 		 * Add a new required parameter whose type must be a superclass of the given type.
 		 * <p>
-		 * If a parameter is of type Number, any derived class (Integer, Long, etc.) will match it.
-		 * @param type - a type or derived type of the matching parameter.
+		 * If a method parameter is of type Number, then any derived class here (Integer, Long, etc.) will match it.
+		 * @param type - a type or less derived type of the matching parameter.
 		 * @return This builder, for chaining.
 		 */
 		public Builder parameterSuperOf(Class<?> type) {
 			member.paramMatchers.add(new ParameterClassMatcher(FuzzyMatchers.matchSuper(type)));
+			return this;
+		}
+		
+		/**
+		 * Add a new required parameter whose type must be a derived class of the given class.
+		 * <p>
+		 * If the method parameter has the type Integer, then the class Number here will match it.
+		 * @param type - a type or more derived type of the matching parameter.
+		 * @return This builder, for chaining.
+		 */
+		public Builder parameterDerivedOf(Class<?> type) {
+			member.paramMatchers.add(new ParameterClassMatcher(FuzzyMatchers.matchDerived(type)));
 			return this;
 		}
 
@@ -201,6 +211,19 @@ public class FuzzyMethodContract extends AbstractFuzzyMember<MethodInfo> {
 		 */
 		public Builder parameterSuperOf(Class<?> type, int index) {
 			member.paramMatchers.add(new ParameterClassMatcher(FuzzyMatchers.matchSuper(type), index));
+			return this;
+		}
+		
+		/**
+		 * Add a new required parameter whose type must be a derived class of the given class.
+		 * <p>
+		 * If the method parameter has the type Integer, then the class Number here will match it.
+		 * @param type - a type or more derived type of the matching parameter.
+		 * @param index - the expected position in the parameter list.
+		 * @return This builder, for chaining.
+		 */
+		public Builder parameterDerivedOf(Class<?> type, int index) {
+			member.paramMatchers.add(new ParameterClassMatcher(FuzzyMatchers.matchDerived(type), index));
 			return this;
 		}
 		

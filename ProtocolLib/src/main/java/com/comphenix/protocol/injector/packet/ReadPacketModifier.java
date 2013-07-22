@@ -17,6 +17,7 @@
 
 package com.comphenix.protocol.injector.packet;
 
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.lang.reflect.Method;
 import java.util.Map;
@@ -49,7 +50,7 @@ class ReadPacketModifier implements MethodInterceptor {
 	
 	// Whether or not a packet has been cancelled
 	private static Map<Object, Object> override = new MapMaker().weakKeys().makeMap();
-	
+
 	public ReadPacketModifier(int packetID, ProxyPacketInjector packetInjector, ErrorReporter reporter, boolean isReadPacketDataMethod) {
 		this.packetID = packetID;
 		this.packetInjector = packetInjector;
@@ -89,6 +90,19 @@ class ReadPacketModifier implements MethodInterceptor {
 		Object overridenObject = override.get(thisObj);
 		Object returnValue = null;
 		
+		// We need this in order to get the correct player
+		DataInputStream input = isReadPacketDataMethod ? (DataInputStream) args[0] : null;
+		ByteArrayOutputStream bufferStream = null;
+		
+		// See if we need to buffer the read data
+		if (isReadPacketDataMethod && packetInjector.requireInputBuffers(packetID)) {
+			CaptureInputStream captured = new CaptureInputStream(
+				input, bufferStream = new ByteArrayOutputStream()); 
+			
+			// Swap it with our custom stream
+			args[0] = new DataInputStream(captured);
+		}
+		
 		if (overridenObject != null) {
 			// This packet has been cancelled
 			if (overridenObject == CANCEL_MARKER) {
@@ -106,13 +120,15 @@ class ReadPacketModifier implements MethodInterceptor {
 		
 		// Is this a readPacketData method?
 		if (isReadPacketDataMethod) {
+			// Swap back custom stream
+			args[0] = input;
+			
 			try {
-				// We need this in order to get the correct player
-				DataInputStream input = (DataInputStream) args[0];
-	
+				byte[] buffer = bufferStream != null ? bufferStream.toByteArray() : null;
+				
 				// Let the people know
 				PacketContainer container = new PacketContainer(packetID, thisObj);
-				PacketEvent event = packetInjector.packetRecieved(container, input);
+				PacketEvent event = packetInjector.packetRecieved(container, input, buffer);
 				
 				// Handle override
 				if (event != null) {
