@@ -22,6 +22,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 import org.bukkit.World;
 import org.bukkit.WorldType;
@@ -35,8 +36,10 @@ import com.comphenix.protocol.reflect.FieldAccessException;
 import com.comphenix.protocol.reflect.instances.DefaultInstances;
 import com.comphenix.protocol.utility.MinecraftReflection;
 import com.comphenix.protocol.wrappers.nbt.NbtBase;
+import com.comphenix.protocol.wrappers.nbt.NbtCompound;
 import com.comphenix.protocol.wrappers.nbt.NbtFactory;
 import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableMap;
 
 /**
  * Contains several useful equivalent converters for normal Bukkit types.
@@ -46,6 +49,11 @@ import com.google.common.base.Objects;
 public class BukkitConverters {
 	// Check whether or not certain classes exists
 	private static boolean hasWorldType = false;
+	private static boolean hasAttributeSnapshot = false;
+	
+	// The static maps
+	private static Map<Class<?>, EquivalentConverter<Object>> specificConverters;
+	private static Map<Class<?>, EquivalentConverter<Object>> genericConverters;
 	
 	// Used to access the world type
 	private static Method worldTypeName;
@@ -53,9 +61,15 @@ public class BukkitConverters {
 	
 	static {
 		try {
-			Class.forName(MinecraftReflection.getMinecraftPackage() + ".WorldType");
+			MinecraftReflection.getWorldTypeClass();
 			hasWorldType = true;
-		} catch (ClassNotFoundException e) {
+		} catch (Exception e) {
+		}
+		
+		try {
+			MinecraftReflection.getAttributeSnapshotClass();
+			hasAttributeSnapshot = true;
+		} catch (Exception e) {
 		}
 	}
 	
@@ -151,6 +165,12 @@ public class BukkitConverters {
 		}
 	}
 	
+	/**
+	 * Retrieve an equivalent converter for a list of generic items.
+	 * @param genericItemType - the generic item type.
+	 * @param itemConverter - an equivalent converter for the generic type.
+	 * @return An equivalent converter.
+	 */
 	public static <T> EquivalentConverter<List<T>> getListConverter(final Class<?> genericItemType, final EquivalentConverter<T> itemConverter) {
 		// Convert to and from the wrapper
 		return new IgnoreNullConverter<List<T>>() {
@@ -199,6 +219,29 @@ public class BukkitConverters {
 					return (Class<List<T>>) dummy;
 				}
 			};
+	}
+	
+	/**
+	 * Retrieve a converter for wrapped attribute snapshots.
+	 * @return Wrapped attribute snapshot converter.
+	 */
+	public static EquivalentConverter<WrappedAttribute> getWrappedAttributeConverter() {
+		return new IgnoreNullConverter<WrappedAttribute>() {
+			@Override
+			protected Object getGenericValue(Class<?> genericType, WrappedAttribute specific) {
+				return specific.getHandle();
+			}
+			
+			@Override
+			protected WrappedAttribute getSpecificValue(Object generic) {
+				return WrappedAttribute.fromHandle(generic);
+			}
+			
+			@Override
+			public Class<WrappedAttribute> getSpecificType() {
+				return WrappedAttribute.class;
+			}
+		};
 	}
 	
 	/**
@@ -415,5 +458,55 @@ public class BukkitConverters {
 				return delegate.getSpecificType();
 			}
 		};
+	}
+	
+	/**
+	 * Retrieve every converter that is associated with a specific class.
+	 * @return Every converter with a unique specific class.
+	 */
+	@SuppressWarnings({"rawtypes", "unchecked"})
+	public static Map<Class<?>, EquivalentConverter<Object>> getConvertersForSpecific() {
+		if (specificConverters == null) {
+			// Generics doesn't work, as usual
+			ImmutableMap.Builder<Class<?>, EquivalentConverter<Object>> builder = 
+				   ImmutableMap.<Class<?>, EquivalentConverter<Object>>builder().
+				put(WrappedDataWatcher.class, (EquivalentConverter) getDataWatcherConverter()).
+				put(ItemStack.class, (EquivalentConverter) getItemStackConverter()).
+				put(NbtBase.class, (EquivalentConverter) getNbtConverter()).
+				put(NbtCompound.class, (EquivalentConverter) getNbtConverter()).
+				put(WrappedWatchableObject.class, (EquivalentConverter) getWatchableObjectConverter());
+			
+			if (hasWorldType) 
+				builder.put(WorldType.class, (EquivalentConverter) getWorldTypeConverter());
+			if (hasAttributeSnapshot)
+				builder.put(WrappedAttribute.class, (EquivalentConverter) getWrappedAttributeConverter());
+			specificConverters = builder.build();
+		}
+		return specificConverters;
+	}
+	
+	/**
+	 * Retrieve every converter that is associated with a generic class.
+	 * @return Every converter with a unique generic class.
+	 */
+	@SuppressWarnings({"rawtypes", "unchecked"})
+	public static Map<Class<?>, EquivalentConverter<Object>> getConvertersForGeneric() {
+		if (genericConverters == null) {
+			// Generics doesn't work, as usual
+			ImmutableMap.Builder<Class<?>, EquivalentConverter<Object>> builder =
+				   ImmutableMap.<Class<?>, EquivalentConverter<Object>>builder().
+				put(MinecraftReflection.getDataWatcherClass(), (EquivalentConverter) getDataWatcherConverter()).
+				put(MinecraftReflection.getItemStackClass(), (EquivalentConverter) getItemStackConverter()).
+				put(MinecraftReflection.getNBTBaseClass(), (EquivalentConverter) getNbtConverter()).
+				put(MinecraftReflection.getNBTCompoundClass(), (EquivalentConverter) getNbtConverter()).
+				put(MinecraftReflection.getWatchableObjectClass(), (EquivalentConverter) getWatchableObjectConverter());
+			
+			if (hasWorldType)
+				builder.put(MinecraftReflection.getWorldTypeClass(), (EquivalentConverter) getWorldTypeConverter());
+			if (hasAttributeSnapshot)
+				builder.put(MinecraftReflection.getAttributeSnapshotClass(), (EquivalentConverter) getWrappedAttributeConverter());
+			genericConverters = builder.build();
+		}
+		return genericConverters;
 	}
 }
