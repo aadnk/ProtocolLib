@@ -420,6 +420,15 @@ public class MinecraftReflection {
 	}
 	
 	/**
+	 * Determine if the given object is an IntHashMap object.
+	 * @param obj - the given object.
+	 * @return TRUE if it is, FALSE otherwise.
+	 */
+	public static boolean isIntHashMap(Object obj) {
+		return getIntHashMapClass().isAssignableFrom(obj.getClass());
+	}
+	
+	/**
 	 * Determine if the given object is a CraftItemStack instancey.
 	 * @param obj - the given object.
 	 * @return TRUE if it is, FALSE otherwise.
@@ -1011,6 +1020,45 @@ public class MinecraftReflection {
 	}
 	
 	/**
+	 * Retrieve the IntHashMap class.
+	 * @return IntHashMap class.
+	 */
+	public static Class<?> getIntHashMapClass() {
+		try {
+			return getMinecraftClass("IntHashMap");
+		} catch (RuntimeException e) {
+			final Class<?> parent = getEntityTrackerClass();
+
+			// Expected structure of a IntHashMap
+			final FuzzyClassContract intHashContract = FuzzyClassContract.newBuilder().
+				// add(int key, Object value)
+				method(FuzzyMethodContract.newBuilder().
+						parameterCount(2).
+						parameterExactType(int.class, 0).
+						parameterExactType(Object.class, 1).requirePublic()
+				).
+				// Object get(int key)
+				method(FuzzyMethodContract.newBuilder().
+						parameterCount(1).
+						parameterExactType(int.class).
+						returnTypeExact(Object.class).requirePublic()
+				).
+				// Finally, there should be an array of some kind
+				field(FuzzyFieldContract.newBuilder().
+						typeMatches(FuzzyMatchers.matchArray(FuzzyMatchers.matchAll()))
+				).
+			build();
+
+			final AbstractFuzzyMatcher<Field> intHashField = FuzzyFieldContract.newBuilder().
+				typeMatches(getMinecraftObjectMatcher().and(intHashContract)).
+				build();
+			
+			// Use the type of the first field that matches
+			return setMinecraftClass("IntHashMap", FuzzyReflection.fromClass(parent).getField(intHashField).getType());
+		}
+	}
+	
+	/**
 	 * Retrieve the attribute modifier class.
 	 * @return Attribute modifier class.
 	 */
@@ -1175,8 +1223,10 @@ public class MinecraftReflection {
 	
 	/**
 	 * Retrieve the net.minecraft.server ItemStack from a Bukkit ItemStack.
+	 * <p>
+	 * By convention, item stacks that contain air are usually represented as NULL.
 	 * @param stack - the Bukkit ItemStack to convert.
-	 * @return The NMS ItemStack.
+	 * @return The NMS ItemStack, or NULL if the stack represents air.
 	 */
 	public static Object getMinecraftItemStack(ItemStack stack) {
 		// Make sure this is a CraftItemStack
@@ -1293,6 +1343,4 @@ public class MinecraftReflection {
 	public static String getNetLoginHandlerName() {
 		return getNetLoginHandlerClass().getSimpleName();
 	}
-
-
 }

@@ -413,10 +413,12 @@ class CommandPacket extends CommandBase {
 			}
 			
 			private void printInformation(PacketEvent event) {
+				String verb = side.isForClient() ? "Received" : "Sent";
 				String format = side.isForClient() ? 
-						"Received %s (%s) from %s" : 
-						"Sent %s (%s) to %s";
+						"%s %s (%s) from %s" : 
+						"%s %s (%s) to %s";
 				String shortDescription = String.format(format,
+						event.isCancelled() ? "Cancelled" : verb,
 						Packets.getDeclaredName(event.getPacketID()),
 						event.getPacketID(),
 						event.getPlayer().getName()
@@ -539,22 +541,6 @@ class CommandPacket extends CommandBase {
 			
 		} else {
 			return defaultValue;
-		}
-	}
-		
-	// Parse a boolean
-	private Boolean parseBoolean(String[] args, String parameterName, int index) {
-		if (index < args.length) {
-			if (args[index].equalsIgnoreCase("true"))
-				return true;
-			else if (args[index].equalsIgnoreCase(parameterName))
-				return true;
-			else if (args[index].equalsIgnoreCase("false"))
-				return false;
-			else
-				return null;
-		} else {
-			return null;
 		}
 	}
 }

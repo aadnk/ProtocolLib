@@ -19,6 +19,7 @@ package com.comphenix.protocol.injector;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -32,6 +33,7 @@ import net.sf.cglib.proxy.Enhancer;
 import net.sf.cglib.proxy.MethodInterceptor;
 import net.sf.cglib.proxy.MethodProxy;
 
+import org.bukkit.Location;
 import org.bukkit.Server;
 import org.bukkit.World;
 import org.bukkit.entity.Entity;
@@ -68,6 +70,7 @@ import com.comphenix.protocol.reflect.FuzzyReflection;
 import com.comphenix.protocol.utility.MinecraftReflection;
 import com.comphenix.protocol.utility.MinecraftVersion;
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableSet;
 
@@ -179,6 +182,9 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 	
 	// Plugin verifier
 	private PluginVerifier pluginVerifier;
+	
+	// Whether or not Location.distance(Location) exists - we assume this is the case
+	private boolean hasRecycleDistance = true;
 	
 	// The current Minecraft version
 	private MinecraftVersion minecraftVersion;
@@ -618,6 +624,84 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 	}
 	
 	@Override
+	public void broadcastServerPacket(PacketContainer packet) {
+		Preconditions.checkNotNull(packet, "packet cannot be NULL.");
+		broadcastServerPacket(packet, Arrays.asList(server.getOnlinePlayers()));
+	}
+
+	@Override
+	public void broadcastServerPacket(PacketContainer packet, Entity entity, boolean includeTracker) {
+		Preconditions.checkNotNull(packet, "packet cannot be NULL.");
+ 		Preconditions.checkNotNull(entity, "entity cannot be NULL.");
+ 		List<Player> trackers = getEntityTrackers(entity);
+ 		
+ 		// Only add it if it's a player
+ 		if (includeTracker && entity instanceof Player) {
+ 			trackers.add((Player) entity);
+ 		}
+		broadcastServerPacket(packet, trackers);
+	}
+	
+	@Override
+	public void broadcastServerPacket(PacketContainer packet, Location origin, int maxObserverDistance) {
+		try {
+			// Square the maximum too
+			int maxDistance = maxObserverDistance * maxObserverDistance;
+			
+			World world = origin.getWorld();
+			Location recycle = origin.clone();
+			
+			// Only broadcast the packet to nearby players
+			for (Player player : server.getOnlinePlayers()) {
+				if (world.equals(player.getWorld()) && 
+				    getDistanceSquared(origin, recycle, player) <= maxDistance) {
+					
+					sendServerPacket(player, packet);
+				}
+			}
+			
+		} catch (InvocationTargetException e) {
+			throw new FieldAccessException("Unable to send server packet.", e);
+		}
+	}
+	
+	/**
+	 * Retrieve the squared distance between a location and a player.
+	 * @param origin - the origin location. 
+	 * @param recycle - a location object to be recycled, if supported.
+	 * @param player - the player.
+	 * @return The squared distance between the player and the origin,
+	 */
+	private double getDistanceSquared(Location origin, Location recycle, Player player) {
+		if (hasRecycleDistance) {
+			try {
+				return player.getLocation(recycle).distanceSquared(origin);
+			} catch (Error e) {
+				// Damn it
+				hasRecycleDistance = false;
+			}
+		}
+		
+		// The fallback method
+		return player.getLocation().distanceSquared(origin);
+	}
+	
+	/**
+	 * Broadcast a packet to a given iterable of players.
+	 * @param packet - the packet to broadcast.
+	 * @param players - the iterable of players.
+	 */
+	private void broadcastServerPacket(PacketContainer packet, Iterable<Player> players) {
+		try {
+			for (Player player : players) {
+				sendServerPacket(player, packet);
+			}
+		} catch (InvocationTargetException e) {
+			throw new FieldAccessException("Unable to send server packet.", e);
+		}
+	}
+	
+	@Override
 	public void sendServerPacket(Player reciever, PacketContainer packet) throws InvocationTargetException {
 		sendServerPacket(reciever, packet, null, true);
 	}
@@ -643,7 +727,7 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 			
 			sendingListeners.invokePacketSending(
 					reporter, event, ListenerPriority.MONITOR);
-			marker = event.getNetworkMarker();
+			marker = NetworkMarker.getNetworkMarker(event);
 		}
 		playerInjection.sendServerPacket(reciever, packet, marker, filters);
 	}
@@ -669,9 +753,12 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 			incrementPhases(GamePhase.PLAYING);
 		
 		Object mcPacket = packet.getHandle();
+		boolean cancelled = packetInjector.isCancelled(mcPacket);
 		
 		// Make sure the packet isn't cancelled
-		packetInjector.undoCancel(packet.getID(), mcPacket);
+		if (cancelled) {
+			packetInjector.setCancelled(mcPacket, false);
+		}
 		
 		if (filters) {
 			byte[] data = NetworkMarker.getByteBuffer(marker);
@@ -691,6 +778,11 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 		}
 		
 		playerInjection.recieveClientPacket(sender, mcPacket);
+		
+		// Let it stay cancelled
+		if (cancelled) {
+			packetInjector.setCancelled(mcPacket, true);
+		}
 	}
 	
 	@Override
@@ -774,12 +866,9 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 		
 		try {
 			manager.registerEvents(new Listener() {
-				@EventHandler(priority = EventPriority.LOWEST)
+				@EventHandler(priority = EventPriority.MONITOR)
 			    public void onPrePlayerJoin(PlayerJoinEvent event) {
 					PacketFilterManager.this.onPrePlayerJoin(event);
-			    }
-				@EventHandler(priority = EventPriority.MONITOR)
-			    public void onPlayerJoin(PlayerJoinEvent event) {
 					PacketFilterManager.this.onPlayerJoin(event);
 			    }
 				@EventHandler(priority = EventPriority.MONITOR)
@@ -909,7 +998,6 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 			Class eventPriority = loader.loadClass("org.bukkit.event.Event$Priority");
 			
 			// Get the priority
-			Object priorityLowest = Enum.valueOf(eventPriority, "Lowest");
 			Object priorityMonitor = Enum.valueOf(eventPriority, "Monitor");
 			
 			// Get event types
@@ -924,27 +1012,9 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 			// Find the register event method
 			Method registerEvent = FuzzyReflection.fromObject(manager).getMethodByParameters("registerEvent", 
 					eventTypes, Listener.class, eventPriority, Plugin.class);
-
-			Enhancer playerLow = new Enhancer();
+			
 			Enhancer playerEx = new Enhancer();
 			Enhancer serverEx = new Enhancer();
-			
-			playerLow.setSuperclass(playerListener);
-			playerLow.setClassLoader(classLoader);
-			playerLow.setCallback(new MethodInterceptor() {
-				@Override
-				public Object intercept(Object obj, Method method, Object[] args, MethodProxy proxy) throws Throwable {
-					// Must have a parameter
-					if (args.length == 1) {
-						Object event = args[0];
-						
-						if (event instanceof PlayerJoinEvent) {
-							onPrePlayerJoin((PlayerJoinEvent) event);
-						}
-					}
-					return null;
-				}
-			});
 			
 			playerEx.setSuperclass(playerListener);
 			playerEx.setClassLoader(classLoader);
@@ -956,6 +1026,7 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 						
 						// Check for the correct event
 						if (event instanceof PlayerJoinEvent) {
+							onPrePlayerJoin((PlayerJoinEvent) event);
 							onPlayerJoin((PlayerJoinEvent) event);
 						} else if (event instanceof PlayerQuitEvent) {
 							onPlayerQuit((PlayerQuitEvent) event);
@@ -983,11 +1054,9 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 			});
 			
 			// Create our listener
-			Object playerProxyLow = playerLow.create();
 			Object playerProxy = playerEx.create();
 			Object serverProxy = serverEx.create();
 			
-			registerEvent.invoke(manager, playerJoinType, playerProxyLow, priorityLowest, plugin);
 			registerEvent.invoke(manager, playerJoinType, playerProxy, priorityMonitor, plugin);
 			registerEvent.invoke(manager, playerQuitType, playerProxy, priorityMonitor, plugin);
 			registerEvent.invoke(manager, pluginDisabledType, serverProxy, priorityMonitor, plugin);
@@ -1044,6 +1113,8 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 		// Remove packet handlers
 		if (packetInjector != null)
 			packetInjector.cleanupAll();
+		if (spigotInjector != null)
+			spigotInjector.cleanupAll();
 		
 		// Remove server handler
 		playerInjection.close();

@@ -98,7 +98,7 @@ public abstract class PlayerInjector implements SocketInjector {
 	protected static Method queueMethod;
 	protected static Method processMethod;
 		
-	protected Player player;
+	protected volatile Player player;
 	protected boolean hasInitialized;
 	
 	// Reference to the player's network manager
@@ -136,7 +136,7 @@ public abstract class PlayerInjector implements SocketInjector {
 	
 	// Whether or not to update the current player on the first Packet1Login
 	boolean updateOnLogin;
-	Player updatedPlayer;
+	volatile Player updatedPlayer;
 	
 	public PlayerInjector(ClassLoader classLoader, ErrorReporter reporter, Player player, ListenerInvoker invoker) throws IllegalAccessException {
 		this.classLoader = classLoader;
@@ -260,6 +260,14 @@ public abstract class PlayerInjector implements SocketInjector {
 	 */
 	public Object getNetworkManager() {
 		return networkManagerRef.getValue();
+	}
+	
+	/**
+	 * Retrieve the current server handler (PlayerConnection).
+	 * @return Current server handler.
+	 */
+	public Object getServerHandler() {
+		return serverHandlerRef.getValue();
 	}
 	
 	/**
@@ -507,7 +515,7 @@ public abstract class PlayerInjector implements SocketInjector {
 	 * @param packet - server packet to send.
 	 * @param marker - the network marker.
 	 * @param filtered - whether or not the packet will be filtered by our listeners.
-	 * @param InvocationTargetException If an error occured when sending the packet.
+	 * @throws InvocationTargetException If an error occured when sending the packet.
 	 */
 	@Override
 	public abstract void sendServerPacket(Object packet, NetworkMarker marker, boolean filtered) throws InvocationTargetException;
@@ -562,8 +570,6 @@ public abstract class PlayerInjector implements SocketInjector {
 	 * Invoked before a new listener is registered.
 	 * <p>
 	 * The player injector should only return a non-null value if some or all of the packet IDs are unsupported.
-	 * @param version 
-	 * 
 	 * @param version - the current Minecraft version, or NULL if unknown.
 	 * @param listener - the listener that is about to be registered.
 	 * @return A error message with the unsupported packet IDs, or NULL if this listener is valid.
@@ -611,8 +617,8 @@ public abstract class PlayerInjector implements SocketInjector {
 				
 				// Right, remember to replace the packet again
 				Object result = event.getPacket().getHandle();
-				marker = event.getNetworkMarker();
-				
+				marker = NetworkMarker.getNetworkMarker(event);
+
 				// See if we need to proxy the write method
 				if (result != null && NetworkMarker.hasOutputHandlers(marker)) {
 					result = writePacketInterceptor.constructProxy(result, event, marker);

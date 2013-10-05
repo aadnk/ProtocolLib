@@ -1,6 +1,7 @@
 package com.comphenix.protocol.injector.player;
 
 import java.io.DataInputStream;
+import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.net.InetSocketAddress;
 import java.util.Set;
@@ -140,7 +141,6 @@ public interface PlayerInjectionHandler {
 	
 	/**
 	 * Determine if the given listeners are valid.
-	 * @param version - the current Minecraft version, or NULL if unknown.
 	 * @param listeners - listeners to check.
 	 */
 	public abstract void checkListener(Set<PacketListener> listeners);
@@ -149,7 +149,6 @@ public interface PlayerInjectionHandler {
 	 * Determine if a listener is valid or not.
 	 * <p>
 	 * If not, a warning will be printed to the console. 
-	 * @param version - the current Minecraft version, or NULL if unknown.
 	 * @param listener - listener to check.
 	 */
 	public abstract void checkListener(PacketListener listener);
@@ -173,7 +172,7 @@ public interface PlayerInjectionHandler {
 	 * @param buffered - the buffered packet.
 	 * @return The packet event.
 	 */
-	public abstract PacketEvent handlePacketRecieved(PacketContainer packet, DataInputStream input, byte[] buffered);
+	public abstract PacketEvent handlePacketRecieved(PacketContainer packet, InputStream input, byte[] buffered);
 	
 	/**
 	 * Close any lingering proxy injections.
