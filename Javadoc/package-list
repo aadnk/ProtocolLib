@@ -4,11 +4,13 @@ com.comphenix.protocol.concurrency
 com.comphenix.protocol.error
 com.comphenix.protocol.events
 com.comphenix.protocol.injector
+com.comphenix.protocol.metrics
 com.comphenix.protocol.reflect
 com.comphenix.protocol.reflect.cloning
 com.comphenix.protocol.reflect.compiler
 com.comphenix.protocol.reflect.fuzzy
 com.comphenix.protocol.reflect.instances
+com.comphenix.protocol.timing
 com.comphenix.protocol.utility
 com.comphenix.protocol.wrappers
 com.comphenix.protocol.wrappers.collection
