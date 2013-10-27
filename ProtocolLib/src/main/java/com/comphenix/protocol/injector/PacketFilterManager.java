@@ -961,7 +961,7 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 		if (!MinecraftReflection.isPacketClass(packet))
 			throw new IllegalArgumentException("The given object " + packet + " is not a packet.");
 		
-		Integer id = PacketRegistry.getPacketToID().get(packet.getClass());
+		Integer id = PacketRegistry.getPacketID(packet.getClass());
 		
 		if (id != null) {
 			return id;

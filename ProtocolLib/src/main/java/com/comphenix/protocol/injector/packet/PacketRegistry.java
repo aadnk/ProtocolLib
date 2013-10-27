@@ -42,6 +42,7 @@ import com.comphenix.protocol.wrappers.TroveWrapper;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 
 /**
@@ -55,6 +56,8 @@ public class PacketRegistry {
 	
 	public static final ReportType REPORT_INSUFFICIENT_SERVER_PACKETS = new ReportType("Too few server packets detected: %s");
 	public static final ReportType REPORT_INSUFFICIENT_CLIENT_PACKETS = new ReportType("Too few client packets detected: %s");
+	
+	public static final ReportType REPORT_SPIGOT_HACK_MISSING = new ReportType("Cannot find Spigot hack: %s.");
 	
 	private static final int MIN_SERVER_PACKETS = 5;
 	private static final int MIN_CLIENT_PACKETS = 5;
@@ -82,6 +85,9 @@ public class PacketRegistry {
 	
 	// Vanilla packets
 	private static Map<Integer, Class> previousValues = new HashMap<Integer, Class>();
+	
+	// Spigot snapshot (1.7) compatibility
+	private static Map<String, Integer> SNAPSHOT_LOOKUP;
 	
 	@SuppressWarnings({ "unchecked" })
 	public static Map<Class, Integer> getPacketToID() {
@@ -311,7 +317,72 @@ public class PacketRegistry {
 			throw new IllegalArgumentException("Type must be a packet.");
 		
 		// The registry contains both the overridden and original packets
-		return getPacketToID().get(packet);
+		Integer id = getPacketToID().get(packet);
+		
+		if (id == null) { 
+			id = getIdFromSpigot(packet);
+			
+			// See if we succeeded
+			if (id == null)
+				throw new IllegalArgumentException("Unable to find packet ID of "+ packet);
+		}
+		return id;
+	}
+	
+	/**
+	 * Retrieve the packet ID using the snapshot hack in Spigot.
+	 * @param packetClass - the packet class.
+	 * @return The packet ID.
+	 */
+	private static Integer getIdFromSpigot(Class<?> packetClass) {
+		try {
+			if (SNAPSHOT_LOOKUP == null) {
+				ClassLoader classLoader = PacketRegistry.class.getClassLoader();
+				Class<?> SNAPSHOT_PROTOCOL = classLoader.loadClass("org.spigotmc.netty.Protocol");
+				Object[] SNAPSHOT_STAGES = SNAPSHOT_PROTOCOL.getEnumConstants();
+
+				// Each stage has two directions - client and server
+				Map<String, Integer> lookup = Maps.newHashMap();
+				
+				for (Object stage : SNAPSHOT_STAGES) {
+					Object serverDirection = FieldUtils.readField(stage, "TO_SERVER", true);
+					Object clientDirection = FieldUtils.readField(stage, "TO_CLIENT", true);
+					
+					intoClassMap(serverDirection, lookup);
+					intoClassMap(clientDirection, lookup);
+				}
+				
+				// Save this lookup
+				SNAPSHOT_LOOKUP = lookup;
+			}
+		} catch (ClassNotFoundException e) {
+			// Damn it
+			ProtocolLibrary.getErrorReporter().reportWarning(PacketRegistry.class, 
+					Report.newBuilder(REPORT_SPIGOT_HACK_MISSING).
+					messageParam(e.getMessage()).
+					callerParam(packetClass)
+			);
+		} catch (IllegalAccessException e) {
+			throw new RuntimeException("Unable to read field.", e);
+		} finally {
+			// Don't try again
+			if (SNAPSHOT_LOOKUP == null) {
+				SNAPSHOT_LOOKUP = Maps.newHashMap();
+			}
+		}
+		
+		return SNAPSHOT_LOOKUP.get(packetClass.getCanonicalName());
+	}
+	
+	private static void intoClassMap(Object direction, Map<String, Integer> destination) throws IllegalAccessException {
+		Map<Object, Integer> map = TroveWrapper.getDecoratedMap(
+			FieldUtils.readField(direction, "packetMap", true)
+		);
+		
+		for (Entry<Object, Integer> entry : map.entrySet()) {
+			Class<?> key = (Class<?>) entry.getKey();
+			destination.put(key.getCanonicalName(), entry.getValue());
+		}
 	}
 	
 	/**
