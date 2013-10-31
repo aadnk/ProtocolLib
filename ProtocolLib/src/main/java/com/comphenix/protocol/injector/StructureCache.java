@@ -17,11 +17,15 @@
 
 package com.comphenix.protocol.injector;
 
+import java.lang.reflect.Field;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import com.comphenix.protocol.Packets;
 import com.comphenix.protocol.injector.packet.PacketRegistry;
 import com.comphenix.protocol.reflect.StructureModifier;
 import com.comphenix.protocol.reflect.compiler.BackgroundCompiler;
@@ -93,14 +97,13 @@ public class StructureCache {
 	 * @return A structure modifier.
 	 */
 	public static StructureModifier<Object> getStructure(int id, boolean compile) {
-		
 		StructureModifier<Object> result = structureModifiers.get(id);
 
 		// We don't want to create this for every lookup
 		if (result == null) {
 			// Use the vanilla class definition
-			final StructureModifier<Object> value = new StructureModifier<Object>(
-					PacketRegistry.getPacketClassFromID(id, true), MinecraftReflection.getPacketClass(), true);
+			final Class<?> type = PacketRegistry.getPacketClassFromID(id, true);
+			final StructureModifier<Object> value = new StructureModifier<Object>(getRemappedFields(type, id), type, true, true);
 			
 			result = structureModifiers.putIfAbsent(id, value);
 			
@@ -130,5 +133,36 @@ public class StructureCache {
 		}
 		
 		return result;
+	}
+	
+	private static List<Field> getRemappedFields(Class<?> targetType, int id) {
+		List<Field> fields = StructureModifier.getFields(targetType, MinecraftReflection.getPacketClass());
+		
+		if (id == Packets.Server.NAMED_ENTITY_SPAWN) {
+			int first = getIndex(fields, String.class, 0);
+			int second = getIndex(fields, String.class, 1);
+			
+			// Swap around string #1 and #2
+			if (first >= 0 && second >= 0) {
+				Collections.swap(fields, first, second);
+			}
+		}
+		return fields;
+	}
+	
+	/**
+	 * Retrieve the index of the n'th field of the given type.
+	 * @param fields - the fields.
+	 * @param type - the type to look for.
+	 * @param skip - the number of fields of the correct type to skip. 
+	 * @return The index of the field, or -1.
+	 */
+	private static int getIndex(List<Field> fields, Class<?> type, int skip) {
+		for (int i = 0; i < fields.size(); i++) {
+			if (fields.get(i).getType().equals(type) && (skip-- <= 0)) {
+				return i;
+			}
+		}
+		return -1;
 	}
 }

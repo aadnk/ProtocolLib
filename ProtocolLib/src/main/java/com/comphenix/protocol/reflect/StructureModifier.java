@@ -116,7 +116,17 @@ public class StructureModifier<TField> {
 	 * @param useStructureCompiler - whether or not to automatically compile this structure modifier.
 	 */
 	public StructureModifier(Class targetType, Class superclassExclude, boolean requireDefault, boolean useStructureCompiler) {
-		List<Field> fields = getFields(targetType, superclassExclude);
+		this(getFields(targetType, superclassExclude), targetType, requireDefault, useStructureCompiler);
+	}
+	
+	/**
+	 * Creates a structure modifier.
+	 * @param fields - the fields to modify.
+	 * @param targetType - the structure to modify.
+	 * @param requireDefault - whether or not we will be using writeDefaults().
+	 * @param useStructureCompiler - whether or not to automatically compile this structure modifier.
+	 */
+	public StructureModifier(List<Field> fields, Class targetType, boolean requireDefault, boolean useStructureCompiler) {
 		Map<Field, Integer> defaults = requireDefault ? generateDefaultFields(fields) : new HashMap<Field, Integer>();
 		
 		initialize(targetType, Object.class, fields, defaults, null, 
@@ -576,8 +586,13 @@ public class StructureModifier<TField> {
 		return requireDefaults;
 	}
 	
-	// Used to filter out irrelevant fields
-	private static List<Field> getFields(Class type, Class superclassExclude) {
+	/**
+	 * Retrieve every non-static and public/private field in declaration order.
+	 * @param type - the starting type.
+	 * @param superclassExclude - superclass to filter out.
+	 * @return Every field.
+	 */
+	public static List<Field> getFields(Class type, Class superclassExclude) {
 		List<Field> result = new ArrayList<Field>();
 		
 		// Retrieve every private and public field
@@ -591,10 +606,7 @@ public class StructureModifier<TField> {
 				
 				result.add(field);
 			}
-		}
-		
+		}	
 		return result;
 	}
-
-
 }
