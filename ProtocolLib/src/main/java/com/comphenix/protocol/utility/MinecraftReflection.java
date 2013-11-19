@@ -30,6 +30,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.annotation.Nonnull;
@@ -42,6 +43,11 @@ import org.bukkit.Bukkit;
 import org.bukkit.Server;
 import org.bukkit.inventory.ItemStack;
 
+import com.comphenix.protocol.Packets;
+import com.comphenix.protocol.ProtocolLibrary;
+import com.comphenix.protocol.error.ErrorReporter;
+import com.comphenix.protocol.error.Report;
+import com.comphenix.protocol.error.ReportType;
 import com.comphenix.protocol.injector.BukkitUnwrapper;
 import com.comphenix.protocol.injector.packet.PacketRegistry;
 import com.comphenix.protocol.reflect.FuzzyReflection;
@@ -52,6 +58,8 @@ import com.comphenix.protocol.reflect.fuzzy.FuzzyClassContract;
 import com.comphenix.protocol.reflect.fuzzy.FuzzyFieldContract;
 import com.comphenix.protocol.reflect.fuzzy.FuzzyMatchers;
 import com.comphenix.protocol.reflect.fuzzy.FuzzyMethodContract;
+import com.comphenix.protocol.utility.RemappedClassSource.RemapperUnavaibleException;
+import com.comphenix.protocol.utility.RemappedClassSource.RemapperUnavaibleException.Reason;
 import com.comphenix.protocol.wrappers.WrappedDataWatcher;
 import com.comphenix.protocol.wrappers.nbt.NbtFactory;
 import com.comphenix.protocol.wrappers.nbt.NbtType;
@@ -63,6 +71,9 @@ import com.google.common.base.Joiner;
  * @author Kristian
  */
 public class MinecraftReflection {
+	public static final ReportType REPORT_CANNOT_FIND_MCPC_REMAPPER = new ReportType("Cannot find MCPC remapper.");
+	public static final ReportType REPORT_CANNOT_LOAD_CPC_REMAPPER = new ReportType("Unable to load MCPC remapper.");
+	
 	/**
 	 * Regular expression that matches a Minecraft object.
 	 * <p>
@@ -77,10 +88,21 @@ public class MinecraftReflection {
 	private static String DYNAMIC_PACKAGE_MATCHER = null;
 	
 	/**
+	 * The Entity package in Forge 1.5.2
+	 */
+	private static final String FORGE_ENTITY_PACKAGE = "net.minecraft.entity";
+	
+	/**
 	 * The package name of all the classes that belongs to the native code in Minecraft.
 	 */
 	private static String MINECRAFT_PREFIX_PACKAGE = "net.minecraft.server";
 
+	/**
+	 * Represents a regular expression that will match the version string in a package:
+	 *    org.bukkit.craftbukkit.v1_6_R2      ->      v1_6_R2
+	 */
+	private static final Pattern PACKAGE_VERSION_MATCHER = Pattern.compile(".*\\.(v\\d+_\\d+_\\w*\\d+)");
+	
 	private static String MINECRAFT_FULL_PACKAGE = null;
 	private static String CRAFTBUKKIT_PACKAGE = null;
 
@@ -99,8 +121,14 @@ public class MinecraftReflection {
 	private static Method craftBukkitMethod;
 	private static boolean craftItemStackFailed;
 
+	// The NMS version
+	private static String packageVersion;
+	
 	// net.minecraft.server
 	private static Class<?> itemStackArrayClass;
+	
+	// The current class source
+	private static ClassSource classSource;
 	
 	/**
 	 * Whether or not we're currently initializing the reflection handler.
@@ -152,6 +180,12 @@ public class MinecraftReflection {
 				Class<?> craftClass = craftServer.getClass();
 				CRAFTBUKKIT_PACKAGE = getPackage(craftClass.getCanonicalName());
 				
+				// Parse the package version
+				Matcher packageMatcher = PACKAGE_VERSION_MATCHER.matcher(CRAFTBUKKIT_PACKAGE);
+				if (packageMatcher.matches()) {
+					packageVersion = packageMatcher.group(1);
+				}
+				
 				// Libigot patch
 				handleLibigot();
 				
@@ -161,12 +195,18 @@ public class MinecraftReflection {
 				
 				MINECRAFT_FULL_PACKAGE = getPackage(getHandle.getReturnType().getCanonicalName());
 				
-				// Pretty important invariant
+				// Pretty important invariantt
 				if (!MINECRAFT_FULL_PACKAGE.startsWith(MINECRAFT_PREFIX_PACKAGE)) {
-					// Assume they're the same instead
-					MINECRAFT_PREFIX_PACKAGE = MINECRAFT_FULL_PACKAGE;
-					
-					// The package is usualy flat, so go with that assumtion
+					// See if we got the Forge entity package
+					if (MINECRAFT_FULL_PACKAGE.equals(FORGE_ENTITY_PACKAGE)) {
+						// USe the standard NMS versioned package
+						MINECRAFT_FULL_PACKAGE = CachedPackage.combine(MINECRAFT_PREFIX_PACKAGE, packageVersion);
+					} else {
+						// Assume they're the same instead
+						MINECRAFT_PREFIX_PACKAGE = MINECRAFT_FULL_PACKAGE;
+					}
+
+					// The package is usualy flat, so go with that assumption
 					String matcher = 
 							(MINECRAFT_PREFIX_PACKAGE.length() > 0 ? 
 									Pattern.quote(MINECRAFT_PREFIX_PACKAGE + ".") : "") + "\\w+";
@@ -193,6 +233,15 @@ public class MinecraftReflection {
 			initializing = false;
 			throw new IllegalStateException("Could not find Bukkit. Is it running?");
 		}
+	}
+	
+	/**
+	 * Retrieve the package version of the underlying CraftBukkit server.
+	 * @return The package version, or NULL if not applicable (before 1.4.6).
+	 */
+	public static String getPackageVersion() {
+		getMinecraftPackage();
+		return packageVersion;
 	}
 	
 	/**
@@ -288,7 +337,7 @@ public class MinecraftReflection {
 	 */
 	public static boolean isMinecraftObject(@Nonnull Object obj) {
 		if (obj == null)
-			throw new IllegalArgumentException("Cannot determine the type of a null object.");
+			return false;
 		
 		// Doesn't matter if we don't check for the version here
 		return obj.getClass().getName().startsWith(MINECRAFT_PREFIX_PACKAGE);
@@ -301,7 +350,7 @@ public class MinecraftReflection {
 	 */
 	public static boolean isMinecraftClass(@Nonnull Class<?> clazz) {
 		if (clazz == null)
-			throw new IllegalArgumentException("Class cannot be NULL.");
+			throw new IllegalArgumentException("clazz cannot be NULL.");
 
 		return getMinecraftObjectMatcher().isMatch(clazz, null);
 	}
@@ -314,7 +363,7 @@ public class MinecraftReflection {
 	 */
 	public static boolean isMinecraftObject(@Nonnull Object obj, String className) {
 		if (obj == null)
-			throw new IllegalArgumentException("Cannot determine the type of a null object.");
+			return false;
 		
 		String javaName = obj.getClass().getName();
 		return javaName.startsWith(MINECRAFT_PREFIX_PACKAGE) && javaName.endsWith(className);
@@ -326,7 +375,7 @@ public class MinecraftReflection {
 	 * @return TRUE if it can, FALSE otherwise.
 	 */
 	public static boolean isChunkPosition(Object obj) {
-		return getChunkPositionClass().isAssignableFrom(obj.getClass());
+		return obj != null && getChunkPositionClass().isAssignableFrom(obj.getClass());
 	}
 	
 	/**
@@ -335,7 +384,7 @@ public class MinecraftReflection {
 	 * @return TRUE if it can, FALSE otherwise.
 	 */
 	public static boolean isChunkCoordinates(Object obj) {
-		return getChunkCoordinatesClass().isAssignableFrom(obj.getClass());
+		return obj != null && getChunkCoordinatesClass().isAssignableFrom(obj.getClass());
 	}
 	
 	/**
@@ -344,7 +393,7 @@ public class MinecraftReflection {
 	 * @return TRUE if it is, FALSE otherwise.
 	 */
 	public static boolean isPacketClass(Object obj) {
-		return getPacketClass().isAssignableFrom(obj.getClass());
+		return obj != null && getPacketClass().isAssignableFrom(obj.getClass());
 	}
 	
 	/**
@@ -353,7 +402,7 @@ public class MinecraftReflection {
 	 * @return TRUE if it is, FALSE otherwise.
 	 */
 	public static boolean isLoginHandler(Object obj) {
-		return getNetLoginHandlerClass().isAssignableFrom(obj.getClass());
+		return obj != null && getNetLoginHandlerClass().isAssignableFrom(obj.getClass());
 	}
 	
 	/**
@@ -362,7 +411,7 @@ public class MinecraftReflection {
 	 * @return TRUE if it is, FALSE otherwise.
 	 */
 	public static boolean isServerHandler(Object obj) {
-		return getNetServerHandlerClass().isAssignableFrom(obj.getClass());
+		return obj != null && getNetServerHandlerClass().isAssignableFrom(obj.getClass());
 	}
 	
 	/**
@@ -371,7 +420,7 @@ public class MinecraftReflection {
 	 * @return TRUE if it is, FALSE otherwise.
 	 */
 	public static boolean isMinecraftEntity(Object obj) {
-		return getEntityClass().isAssignableFrom(obj.getClass());
+		return obj != null && getEntityClass().isAssignableFrom(obj.getClass());
 	}
 	
 	/**
@@ -380,7 +429,7 @@ public class MinecraftReflection {
 	 * @return TRUE if it is, FALSE otherwise.
 	 */
 	public static boolean isItemStack(Object value) {
-		return getItemStackClass().isAssignableFrom(value.getClass());
+		return value != null && getItemStackClass().isAssignableFrom(value.getClass());
 	}
 	
 	/**
@@ -389,7 +438,7 @@ public class MinecraftReflection {
 	 * @return TRUE if it is, FALSE otherwise.
 	 */
 	public static boolean isCraftPlayer(Object value) {
-		return getCraftPlayerClass().isAssignableFrom(value.getClass());
+		return value != null && getCraftPlayerClass().isAssignableFrom(value.getClass());
 	}
 	
 	/**
@@ -398,7 +447,7 @@ public class MinecraftReflection {
 	 * @return TRUE if it is, FALSE otherwise.
 	 */
 	public static boolean isMinecraftPlayer(Object obj) {
-		return getEntityPlayerClass().isAssignableFrom(obj.getClass());
+		return obj != null && getEntityPlayerClass().isAssignableFrom(obj.getClass());
 	}
 
 	/**
@@ -407,7 +456,7 @@ public class MinecraftReflection {
 	 * @return TRUE if it is, FALSE otherwise.
 	 */
 	public static boolean isWatchableObject(Object obj) {
-		return getWatchableObjectClass().isAssignableFrom(obj.getClass());
+		return obj != null && getWatchableObjectClass().isAssignableFrom(obj.getClass());
 	}
 	
 	/**
@@ -416,7 +465,7 @@ public class MinecraftReflection {
 	 * @return TRUE if it is, FALSE otherwise.
 	 */
 	public static boolean isDataWatcher(Object obj) {
-		return getDataWatcherClass().isAssignableFrom(obj.getClass());
+		return obj != null && getDataWatcherClass().isAssignableFrom(obj.getClass());
 	}
 	
 	/**
@@ -425,7 +474,7 @@ public class MinecraftReflection {
 	 * @return TRUE if it is, FALSE otherwise.
 	 */
 	public static boolean isIntHashMap(Object obj) {
-		return getIntHashMapClass().isAssignableFrom(obj.getClass());
+		return obj != null && getIntHashMapClass().isAssignableFrom(obj.getClass());
 	}
 	
 	/**
@@ -434,7 +483,7 @@ public class MinecraftReflection {
 	 * @return TRUE if it is, FALSE otherwise.
 	 */
 	public static boolean isCraftItemStack(Object obj) {
-		return getCraftItemStackClass().isAssignableFrom(obj.getClass());
+		return obj != null && getCraftItemStackClass().isAssignableFrom(obj.getClass());
 	}
 	
 	/**
@@ -1073,6 +1122,27 @@ public class MinecraftReflection {
 	}
 	
 	/**
+	 * Retrieve the net.minecraft.server.MobEffect class.
+	 * @return The mob effect class.
+	 */
+	public static Class<?> getMobEffectClass() {
+		try {
+			return getMinecraftClass("MobEffect");
+		} catch (RuntimeException e) {
+			// It is the second parameter in Packet41MobEffect
+			Class<?> packet = PacketRegistry.getPacketClassFromID(Packets.Server.MOB_EFFECT);
+			Constructor<?> constructor = FuzzyReflection.fromClass(packet).getConstructor(
+				FuzzyMethodContract.newBuilder().
+				parameterCount(2).
+				parameterExactType(int.class, 0).
+				parameterMatches(getMinecraftObjectMatcher(), 1).
+				build()
+			);
+			return setMinecraftClass("MobEffect", constructor.getParameterTypes()[1]);
+		}
+	}
+	
+	/**
 	 * Determine if a given method retrieved by ASM is a constructor.
 	 * @param name - the name of the method.
 	 * @return TRUE if it is, FALSE otherwise.
@@ -1260,7 +1330,7 @@ public class MinecraftReflection {
 	@SuppressWarnings("rawtypes")
 	public static Class getCraftBukkitClass(String className) {
 		if (craftbukkitPackage == null)
-			craftbukkitPackage = new CachedPackage(getCraftBukkitPackage());
+			craftbukkitPackage = new CachedPackage(getCraftBukkitPackage(), getClassSource());
 		return craftbukkitPackage.getPackageClass(className);
 	}
 	
@@ -1272,7 +1342,7 @@ public class MinecraftReflection {
 	 */
 	public static Class<?> getMinecraftClass(String className) {
 		if (minecraftPackage == null)
-			minecraftPackage = new CachedPackage(getMinecraftPackage());
+			minecraftPackage = new CachedPackage(getMinecraftPackage(), getClassSource());
 		return minecraftPackage.getPackageClass(className);
 	}
 	
@@ -1284,9 +1354,34 @@ public class MinecraftReflection {
 	 */
 	private static Class<?> setMinecraftClass(String className, Class<?> clazz) {
 		if (minecraftPackage == null)
-			minecraftPackage = new CachedPackage(getMinecraftPackage());
+			minecraftPackage = new CachedPackage(getMinecraftPackage(), getClassSource());
 		minecraftPackage.setPackageClass(className, clazz);
 		return clazz;
+	}
+	
+	/**
+	 * Retrieve the current class source.
+	 * @return The class source.
+	 */
+	private static ClassSource getClassSource() {
+		ErrorReporter reporter = ProtocolLibrary.getErrorReporter();
+		
+		// Lazy pattern again
+		if (classSource == null) {
+			// Attempt to use MCPC
+			try {
+				return classSource = new RemappedClassSource().initialize();
+			} catch (RemapperUnavaibleException e) {
+				if (e.getReason() != Reason.MCPC_NOT_PRESENT)
+					reporter.reportWarning(MinecraftReflection.class, Report.newBuilder(REPORT_CANNOT_FIND_MCPC_REMAPPER));
+			} catch (Exception e) {
+				reporter.reportWarning(MinecraftReflection.class, Report.newBuilder(REPORT_CANNOT_LOAD_CPC_REMAPPER));
+			} 
+			
+			// Just use the default class loader
+			classSource = ClassSource.fromClassLoader();
+		}
+		return classSource;
 	}
 	
 	/**

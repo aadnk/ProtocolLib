@@ -172,6 +172,43 @@ public class WrappedWatchableObject {
 	
 	/**
 	 * Retrieve the type ID of a watchable object.
+	 * <p>
+	 * <table border=1>
+	 * <tbody>
+	 * <tr>
+	 * <th>Type ID</th>
+	 * <th>Data Type</th>
+	 * </tr>
+	 * <tr>
+	 * <td>0</td>
+	 * <td>Byte</td>
+	 * </tr>
+	 * <tr>
+	 * <td>1</td>
+	 * <td>Short</td>
+	 * </tr>
+	 * <tr>
+	 * <td>2</td>
+	 * <td>Int</td>
+	 * </tr>
+	 * <tr>
+	 * <td>3</td>
+	 * <td>Float</td>
+	 * </tr>
+	 * <tr>
+	 * <td>4</td>
+	 * <td>{@link String}</td>
+	 * </tr>
+	 * <tr>
+	 * <td>5</td>
+	 * <td>{@link org.bukkit.inventory.ItemStack ItemStack}</td>
+	 * </tr>
+	 * <tr>
+	 * <td>6<sup>*</sup></td>
+	 * <td>{@link com.comphenix.protocol.wrappers.ChunkPosition ChunkPosition}</td>
+	 * </tr>
+	 * </tbody>
+	 * </table>
 	 * @return Type ID that identifies the type of the value.
 	 * @throws FieldAccessException Reflection failed.
 	 */
@@ -181,6 +218,7 @@ public class WrappedWatchableObject {
 	
 	/**
 	 * Set the type ID of a watchable object.
+	 * @see {@link #getTypeID()} for more information.
 	 * @param id - the new ID.
 	 * @throws FieldAccessException Reflection failed.
 	 */
@@ -280,6 +318,8 @@ public class WrappedWatchableObject {
 			return ChunkPosition.class;
 		else if (unwrapped.equals(MinecraftReflection.getChunkCoordinatesClass()))
 			return WrappedChunkCoordinate.class;
+		else if (unwrapped.equals(MinecraftReflection.getItemStackClass())) 
+			return ItemStack.class;
 		else
 			return unwrapped;
 	}
@@ -291,7 +331,10 @@ public class WrappedWatchableObject {
 	 */
 	static Object getUnwrapped(Object wrapped) {
     	// Convert special cases
-    	if (wrapped instanceof WrappedChunkCoordinate)
+		if (wrapped instanceof ChunkPosition)
+			return ChunkPosition.getConverter().getGeneric(
+				MinecraftReflection.getChunkPositionClass(), (ChunkPosition) wrapped);
+		else if (wrapped instanceof WrappedChunkCoordinate)
     		return ((WrappedChunkCoordinate) wrapped).getHandle();
     	else if (wrapped instanceof ItemStack)
     		return BukkitConverters.getItemStackConverter().getGeneric(
