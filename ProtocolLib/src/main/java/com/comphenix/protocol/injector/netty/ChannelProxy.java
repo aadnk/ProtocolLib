@@ -46,6 +46,7 @@ abstract class ChannelProxy implements Channel {
 					loadClass("net.minecraft.util.io.netty.channel.SucceededChannelFuture");
 				
 				FUTURE_CONSTRUCTOR = succededFuture.getConstructor(Channel.class, EventExecutor.class);
+				FUTURE_CONSTRUCTOR.setAccessible(true);
 			}		
 			return FUTURE_CONSTRUCTOR.newInstance(this, null);
 			
