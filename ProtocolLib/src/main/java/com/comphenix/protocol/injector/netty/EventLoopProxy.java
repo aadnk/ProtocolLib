@@ -73,138 +73,138 @@ abstract class EventLoopProxy implements EventLoop {
 	protected abstract <T> Callable<T> schedulingCallable(Callable<T> callable);
 	
 	public void execute(Runnable command) {
-		getDelegate().execute(schedulingRunnable(command));
+		this.getDelegate().execute(schedulingRunnable(command));
 	}
 
 	public <T> net.minecraft.util.io.netty.util.concurrent.Future<T> submit(Callable<T> action) {
-		return getDelegate().submit(schedulingCallable(action));
+		return this.getDelegate().submit(schedulingCallable(action));
 	}
 
 	public <T> net.minecraft.util.io.netty.util.concurrent.Future<T> submit(Runnable action, T arg1) {
-		return getDelegate().submit(schedulingRunnable(action), arg1);
+		return this.getDelegate().submit(schedulingRunnable(action), arg1);
 	}
 
 	public net.minecraft.util.io.netty.util.concurrent.Future<?> submit(Runnable action) {
-		return getDelegate().submit(schedulingRunnable(action));
+		return this.getDelegate().submit(schedulingRunnable(action));
 	}
 	
 	public <V> ScheduledFuture<V> schedule(Callable<V> action, long arg1, TimeUnit arg2) {
-		return getDelegate().schedule(schedulingCallable(action), arg1, arg2);
+		return this.getDelegate().schedule(schedulingCallable(action), arg1, arg2);
 	}
 
 	public ScheduledFuture<?> schedule(Runnable action, long arg1, TimeUnit arg2) {
-		return getDelegate().schedule(schedulingRunnable(action), arg1, arg2);
+		return this.getDelegate().schedule(schedulingRunnable(action), arg1, arg2);
 	}
 
 	public ScheduledFuture<?> scheduleAtFixedRate(Runnable action, long arg1, long arg2, TimeUnit arg3) {
-		return getDelegate().scheduleAtFixedRate(schedulingRunnable(action), arg1, arg2, arg3);
+		return this.getDelegate().scheduleAtFixedRate(schedulingRunnable(action), arg1, arg2, arg3);
 	}
 
 	public ScheduledFuture<?> scheduleWithFixedDelay(Runnable action, long arg1, long arg2, TimeUnit arg3) {
-		return getDelegate().scheduleWithFixedDelay(schedulingRunnable(action), arg1, arg2, arg3);
+		return this.getDelegate().scheduleWithFixedDelay(schedulingRunnable(action), arg1, arg2, arg3);
 	}
 	
 	// Boiler plate:
 	public boolean awaitTermination(long timeout, TimeUnit unit) throws InterruptedException {
-		return getDelegate().awaitTermination(timeout, unit);
+		return this.getDelegate().awaitTermination(timeout, unit);
 	}
 
 	public boolean inEventLoop() {
-		return getDelegate().inEventLoop();
+		return this.getDelegate().inEventLoop();
 	}
 
 	public boolean inEventLoop(Thread arg0) {
-		return getDelegate().inEventLoop(arg0);
+		return this.getDelegate().inEventLoop(arg0);
 	}
 
 	public boolean isShutdown() {
-		return getDelegate().isShutdown();
+		return this.getDelegate().isShutdown();
 	}
 
 	public boolean isTerminated() {
-		return getDelegate().isTerminated();
+		return this.getDelegate().isTerminated();
 	}
 
 	public <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks)
 			throws InterruptedException {
-		return getDelegate().invokeAll(tasks);
+		return this.getDelegate().invokeAll(tasks);
 	}
 
 	public <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks, long timeout,
 			TimeUnit unit) throws InterruptedException {
-		return getDelegate().invokeAll(tasks, timeout, unit);
+		return this.getDelegate().invokeAll(tasks, timeout, unit);
 	}
 
 	public <T> T invokeAny(Collection<? extends Callable<T>> tasks) throws InterruptedException,
 			ExecutionException {
-		return getDelegate().invokeAny(tasks);
+		return this.getDelegate().invokeAny(tasks);
 	}
 
 	public <T> T invokeAny(Collection<? extends Callable<T>> tasks, long timeout, TimeUnit unit)
 			throws InterruptedException, ExecutionException, TimeoutException {
-		return getDelegate().invokeAny(tasks, timeout, unit);
+		return this.getDelegate().invokeAny(tasks, timeout, unit);
 	}
 
 	public boolean isShuttingDown() {
-		return getDelegate().isShuttingDown();
+		return this.getDelegate().isShuttingDown();
 	}
 
 	public Iterator<EventExecutor> iterator() {
-		return getDelegate().iterator();
+		return this.getDelegate().iterator();
 	}
 
 	public <V> net.minecraft.util.io.netty.util.concurrent.Future<V> newFailedFuture(Throwable arg0) {
-		return getDelegate().newFailedFuture(arg0);
+		return this.getDelegate().newFailedFuture(arg0);
 	}
 
 	@Override
 	public EventLoop next() {
-		return getDelegate().next();
+		return this.getDelegate().next();
 	}
 	
 	public <V> ProgressivePromise<V> newProgressivePromise() {
-		return getDelegate().newProgressivePromise();
+		return this.getDelegate().newProgressivePromise();
 	}
 
 	public <V> Promise<V> newPromise() {
-		return getDelegate().newPromise();
+		return this.getDelegate().newPromise();
 	}
 
 	public <V> net.minecraft.util.io.netty.util.concurrent.Future<V> newSucceededFuture(V arg0) {
-		return getDelegate().newSucceededFuture(arg0);
+		return this.getDelegate().newSucceededFuture(arg0);
 	}
 	
 	public EventLoopGroup parent() {
-		return getDelegate().parent();
+		return this.getDelegate().parent();
 	}
 
 	public ChannelFuture register(Channel arg0, ChannelPromise arg1) {
-		return getDelegate().register(arg0, arg1);
+		return this.getDelegate().register(arg0, arg1);
 	}
 
 	public ChannelFuture register(Channel arg0) {
-		return getDelegate().register(arg0);
+		return this.getDelegate().register(arg0);
 	}
 
 	public net.minecraft.util.io.netty.util.concurrent.Future<?> shutdownGracefully() {
-		return getDelegate().shutdownGracefully();
+		return this.getDelegate().shutdownGracefully();
 	}
 
 	public net.minecraft.util.io.netty.util.concurrent.Future<?> shutdownGracefully(long arg0, long arg1, TimeUnit arg2) {
-		return getDelegate().shutdownGracefully(arg0, arg1, arg2);
+		return this.getDelegate().shutdownGracefully(arg0, arg1, arg2);
 	}
 
 	public net.minecraft.util.io.netty.util.concurrent.Future<?> terminationFuture() {
-		return getDelegate().terminationFuture();
+		return this.getDelegate().terminationFuture();
 	}
 	
 	@Deprecated
 	public void shutdown() {
-		getDelegate().shutdown();
+		this.getDelegate().shutdown();
 	}
 	
 	@Deprecated
 	public List<Runnable> shutdownNow() {
-		return getDelegate().shutdownNow();
+		return this.getDelegate().shutdownNow();
 	}
 }
