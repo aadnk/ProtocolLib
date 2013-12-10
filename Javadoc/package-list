@@ -1,11 +1,13 @@
+com.comphenix.integration.protocol
 com.comphenix.protocol
 com.comphenix.protocol.async
+com.comphenix.protocol.collections
 com.comphenix.protocol.concurrency
 com.comphenix.protocol.error
 com.comphenix.protocol.events
 com.comphenix.protocol.injector
-com.comphenix.protocol.metrics
 com.comphenix.protocol.reflect
+com.comphenix.protocol.reflect.accessors
 com.comphenix.protocol.reflect.cloning
 com.comphenix.protocol.reflect.compiler
 com.comphenix.protocol.reflect.fuzzy
