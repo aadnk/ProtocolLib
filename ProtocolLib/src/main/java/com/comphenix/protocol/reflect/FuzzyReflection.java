@@ -20,6 +20,7 @@ package com.comphenix.protocol.reflect;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
@@ -28,9 +29,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import com.comphenix.protocol.reflect.accessors.Accessors;
 import com.comphenix.protocol.reflect.fuzzy.AbstractFuzzyMatcher;
+import com.comphenix.protocol.reflect.fuzzy.FuzzyMethodContract;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 
 /**
  * Retrieves fields and methods by signature, not just name.
@@ -38,7 +42,6 @@ import com.google.common.collect.Maps;
  * @author Kristian
  */
 public class FuzzyReflection {
-	
 	// The class we're actually representing
 	private Class<?> source;
 
@@ -89,10 +92,68 @@ public class FuzzyReflection {
 	}
 	
 	/**
+	 * Retrieve the value of the first field of the given type.
+	 * @param instance - the instance to retrieve from.
+	 * @param fieldClass - type of the field to retrieve.
+	 * @param forceAccess - whether or not to look for private and protected fields.
+	 * @return The value of that field.
+	 * @throws IllegalArgumentException If the field cannot be found.
+	 */
+	public static <T> T getFieldValue(Object instance, Class<T> fieldClass, boolean forceAccess) {
+		@SuppressWarnings("unchecked")
+		T result = (T) Accessors.getFieldAccessor(instance.getClass(), fieldClass, forceAccess).get(instance);
+		return result;
+	}
+	
+	/**
 	 * Retrieves the underlying class.
 	 */
 	public Class<?> getSource() {
 		return source;
+	}
+		
+	/**
+	 * Retrieve the singleton instance of a class, from a method or field.
+	 * @return The singleton instance.
+	 * @throws IllegalStateException If the class has no singleton.
+	 */
+	public Object getSingleton() {	
+		Method method = null;
+		Field field = null;
+		
+		try {
+			method = getMethod(
+				FuzzyMethodContract.newBuilder().
+					parameterCount(0).
+					returnDerivedOf(source).
+					requireModifier(Modifier.STATIC).
+					build()
+			);
+		} catch (IllegalArgumentException e) {
+			// Try getting the field instead
+			// Note that this will throw an exception if not found
+			field = getFieldByType("instance", source.getClass());
+		}
+
+		// Convert into unchecked exceptions
+		if (method != null) {
+			try {
+				method.setAccessible(true);
+				return method.invoke(null);
+			} catch (Exception e) {
+				throw new RuntimeException("Cannot invoke singleton method " + method, e);
+			}
+		}
+		if (field != null) {
+			try {
+				field.setAccessible(true);
+				return field.get(null);
+			} catch (Exception e) {
+				throw new IllegalArgumentException("Cannot get content of singleton field " + field, e);
+			}
+		}
+		// We should never get to this point
+		throw new IllegalStateException("Impossible.");
 	}
 	
 	/**
@@ -246,7 +307,6 @@ public class FuzzyReflection {
 				methods.add(method);
 			}
 		}
-		
 		return methods;
 	}
 	
@@ -474,6 +534,25 @@ public class FuzzyReflection {
 	}
 	
 	/**
+	 * Retrieves all private and public fields, up until a certain superclass.
+	 * @param excludeClass - the class (and its superclasses) to exclude from the search.
+	 * @return Every such declared field.
+	 */
+	public Set<Field> getDeclaredFields(Class<?> excludeClass) {
+		if (forceAccess) {
+			Class<?> current = source;
+			Set<Field> fields = Sets.newLinkedHashSet();
+			
+			while (current != null && current != excludeClass) {
+				fields.addAll(Arrays.asList(current.getDeclaredFields()));
+				current = current.getSuperclass();
+			}
+			return fields;
+		}
+		return getFields();
+	}
+	
+	/**
 	 * Retrieves all private and public methods in declared order (after JDK 1.5).
 	 * <p>
 	 * Private, protected and package methods are ignored if forceAccess is FALSE.
@@ -509,7 +588,6 @@ public class FuzzyReflection {
 				result.add(element);
 			}
 		}
-		
 		return result;
 	}
 	

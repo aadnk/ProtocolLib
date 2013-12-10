@@ -17,6 +17,7 @@
 
 package com.comphenix.protocol.wrappers;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -51,32 +52,32 @@ import com.google.common.collect.Iterators;
  * 
  * @author Kristian
  */
-public class WrappedDataWatcher implements Iterable<WrappedWatchableObject> {
-
+public class WrappedDataWatcher extends AbstractWrapper implements Iterable<WrappedWatchableObject> {
 	/**
 	 * Used to assign integer IDs to given types.
 	 */
-	private static Map<Class<?>, Integer> typeMap;
+	private static Map<Class<?>, Integer> TYPE_MAP;
 
 	// Fields
-	private static Field valueMapField;
-	private static Field readWriteLockField;
+	private static Field VALUE_MAP_FIELD;
+	private static Field READ_WRITE_LOCK_FIELD;
+	private static Field ENTITY_FIELD;
 	
 	// Methods
-	private static Method createKeyValueMethod;
-	private static Method updateKeyValueMethod;
-	private static Method getKeyValueMethod;
+	private static Method CREATE_KEY_VALUE_METHOD;
+	private static Method UPDATE_KEY_VALUE_METHOD;
+	private static Method GET_KEY_VALUE_METHOD;
+	
+	// Constructors
+	private static Constructor<?> CREATE_DATA_WATCHER_CONSTRUCTOR;
 	
 	// Entity methods
-	private volatile static Field entityDataField;
+	private volatile static Field ENTITY_DATA_FIELD;
 	
 	/**
 	 * Whether or not this class has already been initialized.
 	 */
-	private static boolean hasInitialized;
-	
-	// The underlying DataWatcher we're modifying
-	protected Object handle;
+	private static boolean HAS_INITIALIZED;
 	
 	// Lock
 	private ReadWriteLock readWriteLock;
@@ -92,9 +93,15 @@ public class WrappedDataWatcher implements Iterable<WrappedWatchableObject> {
 	 * @throws FieldAccessException If we're unable to wrap a DataWatcher.
 	 */
 	public WrappedDataWatcher() {
+		super(MinecraftReflection.getDataWatcherClass());
+		
 		// Just create a new watcher
 		try {
-			this.handle = MinecraftReflection.getDataWatcherClass().newInstance();
+			if (MinecraftReflection.isUsingNetty()) {
+				setHandle(newEntityHandle(null));
+			} else {
+				setHandle(getHandleType().newInstance());
+			}
 			initialize();
 			
 		} catch (Exception e) {
@@ -108,13 +115,45 @@ public class WrappedDataWatcher implements Iterable<WrappedWatchableObject> {
 	 * @throws FieldAccessException If we're unable to wrap a DataWatcher.
 	 */
 	public WrappedDataWatcher(Object handle) {
-		if (handle == null)
-			throw new IllegalArgumentException("Handle cannot be NULL.");
-		if (!MinecraftReflection.isDataWatcher(handle))
-			throw new IllegalArgumentException("The value " + handle + " is not a DataWatcher.");
-		
-		this.handle = handle;
+		super(MinecraftReflection.getDataWatcherClass());
+		setHandle(handle);
 		initialize();
+	}
+	
+	/**
+	 * Construct a new data watcher with the given entity.
+	 * <p>
+	 * In 1.6.4 and ealier, this will fall back to using {@link #WrappedDataWatcher()}.
+	 * @param entity - the entity.
+	 * @return The wrapped data watcher.
+	 */
+	public static WrappedDataWatcher newWithEntity(Entity entity) {
+		// Use the old constructor
+		if (!MinecraftReflection.isUsingNetty())
+			return new WrappedDataWatcher();
+		return new WrappedDataWatcher(newEntityHandle(entity));
+	}
+	
+	/**
+	 * Construct a new native DataWatcher with the given entity.
+	 * <p>
+	 * Warning: This is only supported in 1.7.2 and above.
+	 * @param entity - the entity, or NULL.
+	 * @return The data watcher.
+	 */
+	private static Object newEntityHandle(Entity entity) {
+		Class<?> dataWatcher = MinecraftReflection.getDataWatcherClass();
+		
+		try {
+			if (CREATE_DATA_WATCHER_CONSTRUCTOR == null)
+				CREATE_DATA_WATCHER_CONSTRUCTOR = dataWatcher.getConstructor(MinecraftReflection.getEntityClass());
+			
+			return CREATE_DATA_WATCHER_CONSTRUCTOR.newInstance(
+					BukkitUnwrapper.getInstance().unwrapItem(entity)
+			);
+		} catch (Exception e) {
+			throw new RuntimeException("Cannot construct data watcher.", e);
+		}
 	}
 	
 	/**
@@ -147,21 +186,13 @@ public class WrappedDataWatcher implements Iterable<WrappedWatchableObject> {
 	}
 	
 	/**
-	 * Retrieves the underlying data watcher.
-	 * @return The underlying data watcher.
-	 */
-	public Object getHandle() {
-		return handle;
-	}
-	
-	/**
 	 * Retrieve the ID of a given type, if it's allowed to be watched.
 	 * @return The ID, or NULL if it cannot be watched.
 	 * @throws FieldAccessException If we cannot initialize the reflection machinery.
 	 */
 	public static Integer getTypeID(Class<?> clazz) throws FieldAccessException {
 		initialize();
-		return typeMap.get(WrappedWatchableObject.getUnwrappedType(clazz));
+		return TYPE_MAP.get(WrappedWatchableObject.getUnwrappedType(clazz));
 	}
 	
 	/**
@@ -172,7 +203,7 @@ public class WrappedDataWatcher implements Iterable<WrappedWatchableObject> {
 	public static Class<?> getTypeClass(int id) throws FieldAccessException {
 		initialize();
 		
-		for (Map.Entry<Class<?>, Integer> entry : typeMap.entrySet()) {
+		for (Map.Entry<Class<?>, Integer> entry : TYPE_MAP.entrySet()) {
 			if (Objects.equal(entry.getValue(), id)) {
 				return entry.getKey();
 			}
@@ -418,7 +449,7 @@ public class WrappedDataWatcher implements Iterable<WrappedWatchableObject> {
 	    	if (watchable != null) {
 	    		new WrappedWatchableObject(watchable).setValue(newValue, update);
 	    	} else {
-	    		createKeyValueMethod.invoke(handle, index, WrappedWatchableObject.getUnwrapped(newValue));
+	    		CREATE_KEY_VALUE_METHOD.invoke(handle, index, WrappedWatchableObject.getUnwrapped(newValue));
 	    	}
 	    	
 	    	// Handle invoking the method
@@ -435,9 +466,9 @@ public class WrappedDataWatcher implements Iterable<WrappedWatchableObject> {
     
     private Object getWatchedObject(int index) throws FieldAccessException {
     	// We use the get-method first and foremost
-    	if (getKeyValueMethod != null) {
+    	if (GET_KEY_VALUE_METHOD != null) {
 			try {
-				return getKeyValueMethod.invoke(handle, index);
+				return GET_KEY_VALUE_METHOD.invoke(handle, index);
 			} catch (Exception e) {
 				throw new FieldAccessException("Cannot invoke get key method for index " + index, e);
 			}
@@ -462,8 +493,8 @@ public class WrappedDataWatcher implements Iterable<WrappedWatchableObject> {
 	    	// Cache the read write lock
 	    	if (readWriteLock != null)
 	    		return readWriteLock;
-	    	else if (readWriteLockField != null)
-	    		return readWriteLock = (ReadWriteLock) FieldUtils.readField(readWriteLockField, handle, true);
+	    	else if (READ_WRITE_LOCK_FIELD != null)
+	    		return readWriteLock = (ReadWriteLock) FieldUtils.readField(READ_WRITE_LOCK_FIELD, handle, true);
 	    	else
 	    		return readWriteLock = new ReentrantReadWriteLock();
     	} catch (IllegalAccessException e) {
@@ -480,7 +511,7 @@ public class WrappedDataWatcher implements Iterable<WrappedWatchableObject> {
 	protected Map<Integer, Object> getWatchableObjectMap() throws FieldAccessException {
 		if (watchableObjects == null) {
 			try {
-				watchableObjects = (Map<Integer, Object>) FieldUtils.readField(valueMapField, handle, true);
+				watchableObjects = (Map<Integer, Object>) FieldUtils.readField(VALUE_MAP_FIELD, handle, true);
 			} catch (IllegalAccessException e) {
 				throw new FieldAccessException("Cannot read watchable object field.", e);
 			}
@@ -495,14 +526,14 @@ public class WrappedDataWatcher implements Iterable<WrappedWatchableObject> {
 	 * @throws FieldAccessException Reflection failed.
 	 */
 	public static WrappedDataWatcher getEntityWatcher(Entity entity) throws FieldAccessException {
-		if (entityDataField == null)
-			entityDataField = FuzzyReflection.fromClass(MinecraftReflection.getEntityClass(), true).
+		if (ENTITY_DATA_FIELD == null)
+			ENTITY_DATA_FIELD = FuzzyReflection.fromClass(MinecraftReflection.getEntityClass(), true).
 				getFieldByType("datawatcher", MinecraftReflection.getDataWatcherClass());
 
 		BukkitUnwrapper unwrapper = new BukkitUnwrapper();
 		
 		try {
-			Object nsmWatcher = FieldUtils.readField(entityDataField, unwrapper.unwrapItem(entity), true);
+			Object nsmWatcher = FieldUtils.readField(ENTITY_DATA_FIELD, unwrapper.unwrapItem(entity), true);
 			
 			if (nsmWatcher != null) 
 				return new WrappedDataWatcher(nsmWatcher);
@@ -520,8 +551,8 @@ public class WrappedDataWatcher implements Iterable<WrappedWatchableObject> {
 	@SuppressWarnings("unchecked")
 	private static void initialize() throws FieldAccessException {
 		// This method should only be run once, even if an exception is thrown
-		if (!hasInitialized)
-			hasInitialized = true;
+		if (!HAS_INITIALIZED)
+			HAS_INITIALIZED = true;
 		else
 			return;
 		
@@ -531,23 +562,28 @@ public class WrappedDataWatcher implements Iterable<WrappedWatchableObject> {
 			if (Modifier.isStatic(lookup.getModifiers())) {
 				// This must be the type map
 				try {
-					typeMap = (Map<Class<?>, Integer>) FieldUtils.readStaticField(lookup, true);
+					TYPE_MAP = (Map<Class<?>, Integer>) FieldUtils.readStaticField(lookup, true);
 				} catch (IllegalAccessException e) {
 					throw new FieldAccessException("Cannot access type map field.", e);
 				}
 				
 			} else {
 				// If not, then we're probably dealing with the value map
-				valueMapField = lookup;
+				VALUE_MAP_FIELD = lookup;
 			}
 		}
 		
 		try {
-			readWriteLockField = fuzzy.getFieldByType("readWriteLock", ReadWriteLock.class);
+			READ_WRITE_LOCK_FIELD = fuzzy.getFieldByType("readWriteLock", ReadWriteLock.class);
 		} catch (IllegalArgumentException e) {
 			// It's not a big deal
 		}
 		
+		// Check for the entity field as well
+		if (MinecraftReflection.isUsingNetty()) {
+			ENTITY_FIELD = fuzzy.getFieldByType("entity", MinecraftReflection.getEntityClass());
+			ENTITY_FIELD.setAccessible(true);
+		}
 		initializeMethods(fuzzy);
 	}
 	
@@ -557,9 +593,9 @@ public class WrappedDataWatcher implements Iterable<WrappedWatchableObject> {
 		
 		// Load the get-method
 		try {
-			getKeyValueMethod = fuzzy.getMethodByParameters(
+			GET_KEY_VALUE_METHOD = fuzzy.getMethodByParameters(
 					"getWatchableObject", MinecraftReflection.getWatchableObjectClass(), new Class[] { int.class });
-			getKeyValueMethod.setAccessible(true);
+			GET_KEY_VALUE_METHOD.setAccessible(true);
 			
 		} catch (IllegalArgumentException e) {
 			// Use the fallback method
@@ -567,18 +603,18 @@ public class WrappedDataWatcher implements Iterable<WrappedWatchableObject> {
 		
 		for (Method method : candidates) {
 			if (!method.getName().startsWith("watch")) {
-				createKeyValueMethod = method;
+				CREATE_KEY_VALUE_METHOD = method;
 			} else {
-				updateKeyValueMethod = method;
+				UPDATE_KEY_VALUE_METHOD = method;
 			}
 		}
 		
 		// Did we succeed?
-		if (updateKeyValueMethod == null || createKeyValueMethod == null) {
+		if (UPDATE_KEY_VALUE_METHOD == null || CREATE_KEY_VALUE_METHOD == null) {
 			// Go by index instead
 			if (candidates.size() > 1) {
-				createKeyValueMethod = candidates.get(0);
-				updateKeyValueMethod = candidates.get(1);
+				CREATE_KEY_VALUE_METHOD = candidates.get(0);
+				UPDATE_KEY_VALUE_METHOD = candidates.get(1);
 			} else {
 				throw new IllegalStateException("Unable to find create and update watchable object. Update ProtocolLib.");
 			}
@@ -594,8 +630,8 @@ public class WrappedDataWatcher implements Iterable<WrappedWatchableObject> {
 				}
 			} catch (Exception e) {
 				// Nope
-				updateKeyValueMethod = candidates.get(0);
-				createKeyValueMethod = candidates.get(1);
+				UPDATE_KEY_VALUE_METHOD = candidates.get(0);
+				CREATE_KEY_VALUE_METHOD = candidates.get(1);
 			}
 		}
 	}
@@ -647,5 +683,39 @@ public class WrappedDataWatcher implements Iterable<WrappedWatchableObject> {
 	@Override
 	public String toString() {
 		return asMap().toString();
+	}
+	
+	/**
+	 * Retrieve the entity associated with this data watcher.
+	 * <p>
+	 * <b>Warning:</b> This is only supported on 1.7.2 and above.
+	 * @return The entity, or NULL.
+	 */
+	public Entity getEntity() {
+		if (!MinecraftReflection.isUsingNetty())
+			throw new IllegalStateException("This method is only supported on 1.7.2 and above.");
+		
+		try {
+			return (Entity) MinecraftReflection.getBukkitEntity(ENTITY_FIELD.get(handle));
+		} catch (Exception e) {
+			throw new RuntimeException("Unable to retrieve entity.", e);
+		}
+	}
+	
+	/**
+	 * Set the entity associated with this data watcher.
+	 * <p>
+	 * <b>Warning:</b> This is only supported on 1.7.2 and above.
+	 * @param entity - the new entity.
+	 */
+	public void setEntity(Entity entity) {
+		if (!MinecraftReflection.isUsingNetty())
+			throw new IllegalStateException("This method is only supported on 1.7.2 and above.");
+		
+		try {
+			ENTITY_FIELD.set(handle, BukkitUnwrapper.getInstance().unwrapItem(entity));
+		} catch (Exception e) {
+			throw new RuntimeException("Unable to set entity.", e);
+		}
 	}
 }

@@ -19,20 +19,16 @@ package com.comphenix.protocol;
 
 import java.io.File;
 import java.io.IOException;
-
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.Plugin;
 
 import com.comphenix.protocol.error.ErrorReporter;
-import com.comphenix.protocol.error.Report;
-import com.comphenix.protocol.error.ReportType;
+import com.comphenix.protocol.events.PacketListener;
 import com.comphenix.protocol.metrics.Updater;
-import com.comphenix.protocol.metrics.Updater.UpdateResult;
 import com.comphenix.protocol.metrics.Updater.UpdateType;
 import com.comphenix.protocol.timing.TimedListenerManager;
 import com.comphenix.protocol.timing.TimingReportGenerator;
-import com.comphenix.protocol.utility.WrappedScheduler;
 
 /**
  * Handles the "protocol" administration command.
@@ -44,10 +40,6 @@ class CommandProtocol extends CommandBase {
 	 * Name of this command.
 	 */
 	public static final String NAME = "protocol";
-	
-	public static final ReportType REPORT_HTTP_ERROR = new ReportType("Http error: %s");
-	public static final ReportType REPORT_CANNOT_CHECK_FOR_UPDATES = new ReportType("Cannot check updates for ProtocolLib.");
-	public static final ReportType REPORT_CANNOT_UPDATE_PLUGIN = new ReportType("Cannot update ProtocolLib.");
 	
 	private Plugin plugin;
 	private Updater updater;
@@ -73,55 +65,47 @@ class CommandProtocol extends CommandBase {
 			updateVersion(sender);
 		else if (subCommand.equalsIgnoreCase("timings"))
 			toggleTimings(sender, args);
+		else if (subCommand.equalsIgnoreCase("listeners"))
+			printListeners(sender, args);
 		else
 			return false;
 		return true;
 	}
 	
 	public void checkVersion(final CommandSender sender) {
-		// Perform on an async thread
-		 WrappedScheduler.runAsynchronouslyOnce(plugin, new Runnable() {
-			@Override
-			public void run() {
-				try {
-					UpdateResult result = updater.update(UpdateType.NO_DOWNLOAD, true);
-					sender.sendMessage(ChatColor.BLUE + "[ProtocolLib] " + result.toString());
-				} catch (Exception e) {
-					if (isHttpError(e)) {
-						getReporter().reportWarning(CommandProtocol.this, 
-								Report.newBuilder(REPORT_HTTP_ERROR).messageParam(e.getCause().getMessage())
-						);
-					} else {
-						getReporter().reportDetailed(CommandProtocol.this, Report.newBuilder(REPORT_CANNOT_CHECK_FOR_UPDATES).error(e).callerParam(sender));
-					}
-				}
-			}
-		}, 0L);
-		
-		updateFinished();
+		performUpdate(sender, UpdateType.NO_DOWNLOAD);
 	}
 	
 	public void updateVersion(final CommandSender sender) {
+		performUpdate(sender, UpdateType.DEFAULT);
+	}
+	
+	// Display every listener on the server
+	private void printListeners(final CommandSender sender, String[] args) {
+		for (PacketListener listener : ProtocolLibrary.getProtocolManager().getPacketListeners()) {
+			sender.sendMessage(ChatColor.GOLD + "Packet listeners:");
+			sender.sendMessage(ChatColor.GOLD + " " + listener);
+		}
+	}
+	
+	private void performUpdate(final CommandSender sender, UpdateType type) {
+		if (updater.isChecking()) {
+			sender.sendMessage(ChatColor.RED + "Already checking for an update.");
+			return;
+		}
+		
 		// Perform on an async thread
-		WrappedScheduler.runAsynchronouslyOnce(plugin, new Runnable() {
+		Runnable notify = new Runnable() {
 			@Override
 			public void run() {
-				try {
-					UpdateResult result = updater.update(UpdateType.DEFAULT, true);
-					sender.sendMessage(ChatColor.BLUE + "[ProtocolLib] " + result.toString());
-				} catch (Exception e) {
-					if (isHttpError(e)) {
-						getReporter().reportWarning(CommandProtocol.this, 
-								Report.newBuilder(REPORT_HTTP_ERROR).messageParam(e.getCause().getMessage())
-						);
-					} else {
-						getReporter().reportDetailed(CommandProtocol.this, Report.newBuilder(REPORT_CANNOT_UPDATE_PLUGIN).error(e).callerParam(sender));
-					}
-				}
+				sender.sendMessage(ChatColor.BLUE + "[ProtocolLib] " + updater.getResult());
+				
+				updater.removeListener(this);
+				updateFinished();
 			}
-		}, 0L);
-		
-		updateFinished();
+		};
+		updater.start(type);
+		updater.addListener(notify);
 	}
 	
 	private void toggleTimings(CommandSender sender, String[] args) {
@@ -170,17 +154,6 @@ class CommandProtocol extends CommandBase {
 			
 		} catch (IOException e) {
 			reporter.reportMinimal(plugin, "saveTimings()", e);
-		}
-	}
-	
-	private boolean isHttpError(Exception e) { 
-		Throwable cause = e.getCause();
-		
-		if (cause instanceof IOException) {
-			// Thanks for making the message a part of the API ...
-			return cause.getMessage().contains("HTTP response");
-		} else {
-			return false;
 		}
 	}
 	

@@ -15,7 +15,9 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.PluginManager;
 
 import com.comphenix.protocol.AsynchronousManager;
+import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.ProtocolManager;
+import com.comphenix.protocol.PacketType.Sender;
 import com.comphenix.protocol.error.ErrorReporter;
 import com.comphenix.protocol.error.Report;
 import com.comphenix.protocol.error.ReportType;
@@ -24,6 +26,7 @@ import com.comphenix.protocol.events.NetworkMarker;
 import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.events.PacketListener;
 import com.comphenix.protocol.injector.PacketFilterManager.PlayerInjectHooks;
+import com.comphenix.protocol.injector.packet.PacketRegistry;
 import com.comphenix.protocol.reflect.FieldAccessException;
 import com.comphenix.protocol.utility.MinecraftVersion;
 import com.google.common.base.Objects;
@@ -174,21 +177,21 @@ public class DelayedPacketManager implements ProtocolManager, InternalManager {
 	}
 	
 	@Override
-	public void sendServerPacket(Player reciever, PacketContainer packet) throws InvocationTargetException {
-		sendServerPacket(reciever, packet, null, true);
+	public void sendServerPacket(Player receiver, PacketContainer packet) throws InvocationTargetException {
+		sendServerPacket(receiver, packet, null, true);
 	}
 	
 	@Override
-	public void sendServerPacket(Player reciever, PacketContainer packet, boolean filters) throws InvocationTargetException {
-		sendServerPacket(reciever, packet, null, filters);
+	public void sendServerPacket(Player receiver, PacketContainer packet, boolean filters) throws InvocationTargetException {
+		sendServerPacket(receiver, packet, null, filters);
 	}
 	
 	@Override
-	public void sendServerPacket(Player reciever, PacketContainer packet, NetworkMarker marker, boolean filters) throws InvocationTargetException {
+	public void sendServerPacket(Player receiver, PacketContainer packet, NetworkMarker marker, boolean filters) throws InvocationTargetException {
 		if (delegate != null) {
-			delegate.sendServerPacket(reciever, packet, marker, filters);
+			delegate.sendServerPacket(receiver, packet, marker, filters);
 		} else {
-			queuedActions.add(queuedAddPacket(ConnectionSide.SERVER_SIDE, reciever, packet, marker, filters));
+			queuedActions.add(queuedAddPacket(ConnectionSide.SERVER_SIDE, receiver, packet, marker, filters));
 		}
 	}
 
@@ -292,6 +295,7 @@ public class DelayedPacketManager implements ProtocolManager, InternalManager {
 	}
 
 	@Override
+	@Deprecated
 	public PacketContainer createPacket(int id) {
 		if (delegate != null)
 			return delegate.createPacket(id);
@@ -299,6 +303,7 @@ public class DelayedPacketManager implements ProtocolManager, InternalManager {
 	}
 	
 	@Override
+	@Deprecated
 	public PacketContainer createPacket(int id, boolean forceDefaults) {
 		if (delegate != null) {
 			return delegate.createPacket(id);
@@ -318,6 +323,7 @@ public class DelayedPacketManager implements ProtocolManager, InternalManager {
 		}
 	}
 	
+	@SuppressWarnings("deprecation")
 	@Override
 	public PacketConstructor createPacketConstructor(int id, Object... arguments) {
 		if (delegate != null)
@@ -325,8 +331,17 @@ public class DelayedPacketManager implements ProtocolManager, InternalManager {
 		else
 			return PacketConstructor.DEFAULT.withPacket(id, arguments);
 	}
+	
+	@Override
+	public PacketConstructor createPacketConstructor(PacketType type, Object... arguments) {
+		if (delegate != null)
+			return delegate.createPacketConstructor(type, arguments);
+		else
+			return PacketConstructor.DEFAULT.withPacket(type, arguments);
+	}
 
 	@Override
+	@Deprecated
 	public Set<Integer> getSendingFilters() {
 		if (delegate != null) {
 			return delegate.getSendingFilters();
@@ -342,6 +357,7 @@ public class DelayedPacketManager implements ProtocolManager, InternalManager {
 	}
 	
 	@Override
+	@Deprecated
 	public Set<Integer> getReceivingFilters() {
 		if (delegate != null) {
 			return delegate.getReceivingFilters();
@@ -353,6 +369,26 @@ public class DelayedPacketManager implements ProtocolManager, InternalManager {
 			}
 			return recieving;
 		}
+	}
+	
+	@Override
+	public PacketContainer createPacket(PacketType type) {
+		return createPacket(type.getLegacyId());
+	}
+
+	@Override
+	public PacketContainer createPacket(PacketType type, boolean forceDefaults) {
+		return createPacket(type.getLegacyId(), forceDefaults);
+	}
+
+	@Override
+	public Set<PacketType> getSendingFilterTypes() {
+		return PacketRegistry.toPacketTypes(getSendingFilters(), Sender.SERVER);
+	}
+
+	@Override
+	public Set<PacketType> getReceivingFilterTypes() {
+		return PacketRegistry.toPacketTypes(getReceivingFilters(), Sender.CLIENT);
 	}
 	
 	@Override

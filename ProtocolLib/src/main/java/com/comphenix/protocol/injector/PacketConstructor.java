@@ -21,10 +21,12 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 
+import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.error.RethrowErrorReporter;
 import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.injector.packet.PacketRegistry;
 import com.comphenix.protocol.reflect.FieldAccessException;
+import com.comphenix.protocol.wrappers.BukkitConverters;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Primitives;
@@ -35,7 +37,6 @@ import com.google.common.primitives.Primitives;
  *
  */
 public class PacketConstructor {
-
 	/**
 	 * A packet constructor that automatically converts Bukkit types to their NMS conterpart. 
 	 * <p>
@@ -47,24 +48,25 @@ public class PacketConstructor {
 	private Constructor<?> constructorMethod;
 	
 	// The packet ID
-	private int packetID;
+	private PacketType type;
 	
 	// Used to unwrap Bukkit objects
 	private List<Unwrapper> unwrappers;
 	
 	// Parameters that need to be unwrapped
-	private boolean[] unwrappable;
+	private Unwrapper[] paramUnwrapper;
 	
 	private PacketConstructor(Constructor<?> constructorMethod) {
 		this.constructorMethod = constructorMethod;
 		this.unwrappers = Lists.newArrayList((Unwrapper) new BukkitUnwrapper(new RethrowErrorReporter() ));
+		this.unwrappers.addAll(BukkitConverters.getUnwrappers()); 
 	}
 	
-	private PacketConstructor(int packetID, Constructor<?> constructorMethod, List<Unwrapper> unwrappers, boolean[] unwrappable) {
-		this.packetID = packetID;
+	private PacketConstructor(PacketType type, Constructor<?> constructorMethod, List<Unwrapper> unwrappers, Unwrapper[] paramUnwrapper) {
+		this.type = type;
 		this.constructorMethod = constructorMethod;
 		this.unwrappers = unwrappers;
-		this.unwrappable = unwrappable;
+		this.paramUnwrapper = paramUnwrapper;
 	}
 	
 	public ImmutableList<Unwrapper> getUnwrappers() {
@@ -73,10 +75,21 @@ public class PacketConstructor {
 	
 	/**
 	 * Retrieve the id of the packets this constructor creates.
+	 * <p>
+	 * Deprecated: Use {@link #getType()} instead.
 	 * @return The ID of the packets this constructor will create.
 	 */
+	@Deprecated
 	public int getPacketID() {
-		return packetID;
+		return type.getLegacyId();
+	}
+	
+	/**
+	 * Retrieve the type of the packets this constructor creates.
+	 * @return The type of the created packets.
+	 */
+	public PacketType getType() {
+		return type;
 	}
 	
 	/**
@@ -85,27 +98,43 @@ public class PacketConstructor {
 	 * @return A constructor with a different set of unwrappers.
 	 */
 	public PacketConstructor withUnwrappers(List<Unwrapper> unwrappers) {
-		return new PacketConstructor(packetID, constructorMethod, unwrappers, unwrappable);
+		return new PacketConstructor(type, constructorMethod, unwrappers, paramUnwrapper);
 	}
 
 	/**
-	 * Create a packet constructor that creates packets using the given types.
+	 * Create a packet constructor that creates packets using the given ID.
 	 * <p>
 	 * Note that if you pass a Class<?> as a value, it will use its type directly.
-	 * @param id - packet ID.
+	 * <p>
+	 * Deprecated: Use {@link #withPacket(PacketType, Object[])} instead.
+	 * @param id - legacy (1.6.4) packet ID.
 	 * @param values - the values that will match each parameter in the desired constructor.
 	 * @return A packet constructor with these types.
 	 * @throws IllegalArgumentException If no packet constructor could be created with these types.
 	 */
+	@Deprecated
 	public PacketConstructor withPacket(int id, Object[] values) {
+		return withPacket(PacketType.findLegacy(id), values);
+	}
+	
+	/**
+	 * Create a packet constructor that creates packets using the given types.
+	 * <p>
+	 * Note that if you pass a Class<?> as a value, it will use its type directly.
+	 * @param type - the type of the packet to create.
+	 * @param values - the values that will match each parameter in the desired constructor.
+	 * @return A packet constructor with these types.
+	 * @throws IllegalArgumentException If no packet constructor could be created with these types.
+	 */
+	public PacketConstructor withPacket(PacketType type, Object[] values) {
 		Class<?>[] types = new Class<?>[values.length];
 		Throwable lastException = null;
-		boolean[] unwrappable = new boolean[values.length];		
+		Unwrapper[] paramUnwrapper = new Unwrapper[values.length];		
 		
 		for (int i = 0; i < types.length; i++) {
 			// Default type
 			if (values[i] != null) {
-				types[i] = (values[i] instanceof Class) ? (Class<?>)values[i] : values[i].getClass();
+				types[i] = PacketConstructor.getClass(values[i]);
 				
 				for (Unwrapper unwrapper : unwrappers) {
 					Object result = null;
@@ -118,8 +147,8 @@ public class PacketConstructor {
 					
 					// Update type we're searching for
 					if (result != null) {
-						types[i] = result.getClass();
-						unwrappable[i] = true;
+						types[i] = PacketConstructor.getClass(result);
+						paramUnwrapper[i] = unwrapper;
 						break;
 					}
 				}
@@ -129,11 +158,10 @@ public class PacketConstructor {
 				types[i] = Object.class;
 			}
 		}
-		
-		Class<?> packetType = PacketRegistry.getPacketClassFromID(id, true);
+		Class<?> packetType = PacketRegistry.getPacketClassFromType(type, true);
 		
 		if (packetType == null)
-			throw new IllegalArgumentException("Could not find a packet by the id " + id);
+			throw new IllegalArgumentException("Could not find a packet by the type " + type);
 		
 		// Find the correct constructor
 		for (Constructor<?> constructor : packetType.getConstructors()) {
@@ -141,10 +169,9 @@ public class PacketConstructor {
 
 			if (isCompatible(types, params)) {
 				// Right, we've found our type
-				return new PacketConstructor(id, constructor, unwrappers, unwrappable);
+				return new PacketConstructor(type, constructor, unwrappers, paramUnwrapper);
 			}
 		}
-		
 		throw new IllegalArgumentException("No suitable constructor could be found.", lastException);
 	}
 	
@@ -160,20 +187,13 @@ public class PacketConstructor {
 		try {
 			// Convert types that needs to be converted
 			for (int i = 0; i < values.length; i++) {
-				if (unwrappable[i]) {
-					for (Unwrapper unwrapper : unwrappers) {
-						Object converted = unwrapper.unwrapItem(values[i]);
-						
-						if (converted != null) {
-							values[i] = converted;
-							break;
-						}
-					}
+				if (paramUnwrapper[i] != null) {
+					values[i] = paramUnwrapper[i].unwrapItem(values[i]);
 				}
 			}
 			
 			Object nmsPacket = constructorMethod.newInstance(values);
-			return new PacketContainer(packetID, nmsPacket);
+			return new PacketContainer(type, nmsPacket);
 			
 		} catch (IllegalArgumentException e) {
 			throw e;
@@ -196,7 +216,7 @@ public class PacketConstructor {
 				Class<?> paramType = params[i];
 				
 				// The input type is always wrapped
-				if (paramType.isPrimitive()) {
+				if (!inputType.isPrimitive() && paramType.isPrimitive()) {
 					// Wrap it
 					paramType = Primitives.wrap(paramType);
 				}
@@ -213,6 +233,17 @@ public class PacketConstructor {
 		// Parameter count must match
 		return false;
 	}
+	
+	/**
+	 * Retrieve the class of an object, or just the class if it already is a class object.
+	 * @param obj - the object.
+	 * @return The class of an object.
+	 */
+	public static Class<?> getClass(Object obj) {
+		if (obj instanceof Class)
+			return (Class<?>) obj;
+		return obj.getClass();
+	}
 
 	/**
 	 * Represents a unwrapper for a constructor parameter.
@@ -222,8 +253,11 @@ public class PacketConstructor {
 	public static interface Unwrapper {
 		/**
 		 * Convert the given wrapped object to the equivalent net.minecraft.server object.
-		 * @param wrappedObject - wrapped object.
-		 * @return The net.minecraft.server object.
+		 * <p>
+		 * Note that we may pass in a class instead of object - in that case, the unwrapper should 
+		 * return the equivalent NMS class.
+		 * @param wrappedObject - wrapped object or class.
+		 * @return The equivalent net.minecraft.server object or class.
 		 */
 		public Object unwrapItem(Object wrappedObject);
 	}

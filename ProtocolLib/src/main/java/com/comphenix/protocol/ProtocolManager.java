@@ -45,22 +45,22 @@ public interface ProtocolManager extends PacketStream {
 	/**
 	 * Send a packet to the given player.
 	 * <p>
-	 * Re-sending a previously cancelled packet is discuraged. Use {@link AsyncMarker#incrementProcessingDelay()} 
+	 * Re-sending a previously cancelled packet is discouraged. Use {@link AsyncMarker#incrementProcessingDelay()} 
 	 * to delay a packet until a certain condition has been met.
 	 * 
-	 * @param reciever - the reciever.
+	 * @param receiver - the receiver.
 	 * @param packet - packet to send.
 	 * @param filters - whether or not to invoke any packet filters below {@link ListenerPriority#MONITOR}.
-	 * @throws InvocationTargetException - if an error occured when sending the packet.
+	 * @throws InvocationTargetException - if an error occurred when sending the packet.
 	 */
 	@Override
-	public void sendServerPacket(Player reciever, PacketContainer packet, boolean filters) 
+	public void sendServerPacket(Player receiver, PacketContainer packet, boolean filters) 
 			throws InvocationTargetException;
 	
 	/**
-	 * Simulate recieving a certain packet from a given player.
+	 * Simulate receiving a certain packet from a given player.
 	 * <p>
-	 * Receiving a previously cancelled packet is discuraged. Use {@link AsyncMarker#incrementProcessingDelay()} 
+	 * Receiving a previously cancelled packet is discouraged. Use {@link AsyncMarker#incrementProcessingDelay()} 
 	 * to delay a packet until a certain condition has been met.
 	 * 
 	 * @param sender - the sender.
@@ -81,7 +81,7 @@ public interface ProtocolManager extends PacketStream {
 	public void broadcastServerPacket(PacketContainer packet);
 	
 	/**
-	 * Broadcast a packet to every player that is recieving information about a given entity. 
+	 * Broadcast a packet to every player that is receiving information about a given entity. 
 	 * <p>
 	 * This is usually every player in the same world within an observable distance. If the entity is a 
 	 * player, it will only be included if <i>includeTracker</i> is TRUE.
@@ -132,10 +132,37 @@ public interface ProtocolManager extends PacketStream {
 
 	/**
 	 * Constructs a new encapsulated Minecraft packet with the given ID.
+	 * <p>
+	 * Deprecated: Use {@link #createPacket(PacketType)} instead.
 	 * @param id - packet ID.
 	 * @return New encapsulated Minecraft packet.
 	 */
+	@Deprecated
 	public PacketContainer createPacket(int id);
+	
+	/**
+	 * Constructs a new encapsulated Minecraft packet with the given ID.
+	 * @param  type - packet  type.
+	 * @return New encapsulated Minecraft packet.
+	 */
+	public PacketContainer createPacket(PacketType type);
+	
+	/**
+	 * Constructs a new encapsulated Minecraft packet with the given ID.
+	 * <p>
+	 * If set to true, the <i>forceDefaults</i> option will force the system to automatically 
+	 * give non-primitive fields in the packet sensible default values. For instance, certain
+	 * packets - like Packet60Explosion - require a List or Set to be non-null. If the
+	 * forceDefaults option is true, the List or Set will be automatically created.
+	 * <p>
+	 * Deprecated: Use {@link #createPacket(PacketType, boolean)} instead.
+	 * 
+	 * @param id - packet ID.
+	 * @param forceDefaults - TRUE to use sensible defaults in most fields, FALSE otherwise.
+	 * @return New encapsulated Minecraft packet.
+	 */
+	@Deprecated
+	public PacketContainer createPacket(int id, boolean forceDefaults);
 	
 	/**
 	 * Constructs a new encapsulated Minecraft packet with the given ID.
@@ -145,19 +172,30 @@ public interface ProtocolManager extends PacketStream {
 	 * packets - like Packet60Explosion - require a List or Set to be non-null. If the
 	 * forceDefaults option is true, the List or Set will be automatically created.
 	 * 
-	 * @param id - packet ID.
+	 * @param type - packet type.
 	 * @param forceDefaults - TRUE to use sensible defaults in most fields, FALSE otherwise.
 	 * @return New encapsulated Minecraft packet.
 	 */
-	public PacketContainer createPacket(int id, boolean forceDefaults);
+	public PacketContainer createPacket(PacketType type, boolean forceDefaults);
 
 	/**
 	 * Construct a packet using the special builtin Minecraft constructors.
+	 * <p>
+	 * Deprecated: Use {@link #createPacketConstructor(PacketType, Object...)} instead.
 	 * @param id - the packet ID.
 	 * @param arguments - arguments that will be passed to the constructor.
 	 * @return The packet constructor.
 	 */
+	@Deprecated
 	public PacketConstructor createPacketConstructor(int id, Object... arguments);
+	
+	/**
+	 * Construct a packet using the special builtin Minecraft constructors.
+	 * @param id - the packet type.
+	 * @param arguments - arguments that will be passed to the constructor.
+	 * @return The packet constructor.
+	 */
+	public PacketConstructor createPacketConstructor(PacketType type, Object... arguments);
 	
 	/**
 	 * Completely resend an entity to a list of clients.
@@ -188,15 +226,33 @@ public interface ProtocolManager extends PacketStream {
 	
 	/**
 	 * Retrieves a immutable set containing the ID of the sent server packets that will be observed by listeners.
+	 * <p>
+	 * Deprecated: Use {@link #getSendingFilterTypes()} instead.
 	 * @return Every filtered server packet.
 	 */
+	@Deprecated
 	public Set<Integer> getSendingFilters();
 	
 	/**
-	 * Retrieves a immutable set containing the ID of the recieved client packets that will be observed by listeners.
+	 * Retrieves a immutable set containing the type of the sent server packets that will be observed by listeners.
+	 * @return Every filtered server packet.
+	 */
+	public Set<PacketType> getSendingFilterTypes();
+	
+	/**
+	 * Retrieves a immutable set containing the ID of the received client packets that will be observed by listeners.
+	 * <p>
+	 * Deprecated: Use {@link #getReceivingFilterTypes()} instead.
 	 * @return Every filtered client packet.
 	 */
+	@Deprecated
 	public Set<Integer> getReceivingFilters();
+	
+	/**
+	 * Retrieves a immutable set containing the type of the received client packets that will be observed by listeners.
+	 * @return Every filtered client packet.
+	 */
+	public Set<PacketType> getReceivingFilterTypes();
 	
 	/**
 	 * Retrieve the current Minecraft version.
@@ -205,14 +261,14 @@ public interface ProtocolManager extends PacketStream {
 	public MinecraftVersion getMinecraftVersion();
 	
 	/**
-	 * Determines whether or not this protocol mananger has been disabled. 
+	 * Determines whether or not this protocol manager has been disabled. 
 	 * @return TRUE if it has, FALSE otherwise.
 	 */
 	public boolean isClosed();
 
 	/**
-	 * Retrieve the current asyncronous packet manager.
-	 * @return Asyncronous packet manager.
+	 * Retrieve the current asynchronous packet manager.
+	 * @return Asynchronous packet manager.
 	 */
 	public AsynchronousManager getAsynchronousManager();
 }

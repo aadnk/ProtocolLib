@@ -4,6 +4,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
@@ -21,25 +22,31 @@ import net.sf.cglib.proxy.MethodInterceptor;
 import net.sf.cglib.proxy.MethodProxy;
 import net.sf.cglib.proxy.NoOp;
 
-import com.comphenix.protocol.Packets;
-import com.comphenix.protocol.concurrency.IntegerSet;
+import com.comphenix.protocol.PacketType;
+import com.comphenix.protocol.PacketType.Sender;
+import com.comphenix.protocol.concurrency.PacketTypeSet;
 import com.comphenix.protocol.error.DelegatedErrorReporter;
 import com.comphenix.protocol.error.ErrorReporter;
 import com.comphenix.protocol.error.Report;
+import com.comphenix.protocol.error.ReportType;
 import com.comphenix.protocol.events.ConnectionSide;
 import com.comphenix.protocol.events.NetworkMarker;
 import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.events.PacketEvent;
 import com.comphenix.protocol.injector.ListenerInvoker;
 import com.comphenix.protocol.injector.PlayerLoggedOutException;
+import com.comphenix.protocol.injector.packet.LegacyNetworkMarker;
 import com.comphenix.protocol.injector.packet.PacketInjector;
 import com.comphenix.protocol.injector.player.NetworkObjectInjector;
 import com.comphenix.protocol.injector.player.PlayerInjectionHandler;
+import com.comphenix.protocol.reflect.FieldUtils;
 import com.comphenix.protocol.reflect.FuzzyReflection;
 import com.comphenix.protocol.reflect.MethodInfo;
 import com.comphenix.protocol.reflect.fuzzy.FuzzyMethodContract;
 import com.comphenix.protocol.utility.MinecraftReflection;
 
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.MapMaker;
 import com.google.common.collect.Maps;
 
@@ -49,6 +56,8 @@ import com.google.common.collect.Maps;
  * @author Kristian
  */
 public class SpigotPacketInjector implements SpigotPacketListener {
+	public static final ReportType REPORT_CANNOT_CLEANUP_SPIGOT = new ReportType("Cannot cleanup Spigot listener.");
+	
 	// Lazily retrieve the spigot listener class
 	private static volatile Class<?> spigotListenerClass;
 	private static volatile boolean classChecked;
@@ -73,8 +82,8 @@ public class SpigotPacketInjector implements SpigotPacketListener {
 	private Plugin plugin;
 	
 	// Different sending filters
-	private IntegerSet queuedFilters;
-	private IntegerSet reveivedFilters;
+	private PacketTypeSet queuedFilters;
+	private PacketTypeSet reveivedFilters;
 
 	// NetworkManager to injector and player
 	private ConcurrentMap<Object, NetworkObjectInjector> networkManagerInjector = Maps.newConcurrentMap();
@@ -102,8 +111,8 @@ public class SpigotPacketInjector implements SpigotPacketListener {
 		this.reporter = reporter;
 		this.invoker = invoker;
 		this.server = server;
-		this.queuedFilters = new IntegerSet(Packets.MAXIMUM_PACKET_ID + 1);
-		this.reveivedFilters = new IntegerSet(Packets.MAXIMUM_PACKET_ID + 1);
+		this.queuedFilters = new PacketTypeSet();
+		this.reveivedFilters = new PacketTypeSet();
 	}
 	
 	/**
@@ -410,16 +419,18 @@ public class SpigotPacketInjector implements SpigotPacketListener {
 	
 	@Override
 	public Object packetReceived(Object networkManager, Object connection, Object packet) {
-		Integer id = invoker.getPacketID(packet);
-		
-		if (id != null && reveivedFilters.contains(id)) {
+		if (reveivedFilters.contains(packet.getClass())) {
+			@SuppressWarnings("deprecation")
+			Integer id = invoker.getPacketID(packet);
+			
 			// Check for ignored packets
 			if (ignoredPackets.remove(packet)) {
 				return packet;
 			}
 			
 			Player sender = getInjector(networkManager, connection).getUpdatedPlayer();
-			PacketContainer container = new PacketContainer(id, packet);
+			PacketType type = PacketType.findLegacy(id, Sender.CLIENT);
+			PacketContainer container = new PacketContainer(type, packet);
 			PacketEvent event = packetReceived(container, sender, readBufferedPackets.get(packet));
 			
 			if (!event.isCancelled())
@@ -433,16 +444,18 @@ public class SpigotPacketInjector implements SpigotPacketListener {
 
 	@Override
 	public Object packetQueued(Object networkManager, Object connection, Object packet) {
-		Integer id = invoker.getPacketID(packet);
-		
-		if (id != null && queuedFilters.contains(id)) {
+		if (queuedFilters.contains(packet.getClass())) {
+			@SuppressWarnings("deprecation")
+			Integer id = invoker.getPacketID(packet);
+			
 			// Check for ignored packets
 			if (ignoredPackets.remove(packet)) {
 				return packet;
 			}
 			
 			Player reciever = getInjector(networkManager, connection).getUpdatedPlayer();
-			PacketContainer container = new PacketContainer(id, packet);
+			PacketType type = PacketType.findLegacy(id, Sender.SERVER);
+			PacketContainer container = new PacketContainer(type, packet);
 			PacketEvent event = packetQueued(container, reciever);
 
 			if (!event.isCancelled())
@@ -457,11 +470,11 @@ public class SpigotPacketInjector implements SpigotPacketListener {
 	/**
 	 * Called to inform the event listeners of a queued packet.
 	 * @param packet - the packet that is to be sent.
-	 * @param reciever - the reciever of this packet.
+	 * @param receiver - the receiver of this packet.
 	 * @return The packet event that was used.
 	 */
-	PacketEvent packetQueued(PacketContainer packet, Player reciever) {
-		PacketEvent event = PacketEvent.fromServer(this, packet, reciever);
+	PacketEvent packetQueued(PacketContainer packet, Player receiver) {
+		PacketEvent event = PacketEvent.fromServer(this, packet, receiver);
 		
 		invoker.invokePacketSending(event);
 		return event;
@@ -474,7 +487,7 @@ public class SpigotPacketInjector implements SpigotPacketListener {
 	 * @return The packet event that was used.
 	 */
 	PacketEvent packetReceived(PacketContainer packet, Player sender, byte[] buffered) {
-		NetworkMarker marker = buffered != null ? new NetworkMarker(ConnectionSide.CLIENT_SIDE, buffered) : null;
+		NetworkMarker marker = buffered != null ? new LegacyNetworkMarker(ConnectionSide.CLIENT_SIDE, buffered, packet.getType()) : null;
 		PacketEvent event = PacketEvent.fromClient(this, packet, marker, sender);
 		
 		invoker.invokePacketRecieving(event);
@@ -529,14 +542,14 @@ public class SpigotPacketInjector implements SpigotPacketListener {
 	}
 	/**
 	 * Invoked when a plugin wants to sent a packet.
-	 * @param reciever - the packet receiver.
+	 * @param receiver - the packet receiver.
 	 * @param packet - the packet to transmit.
 	 * @param marker - the network marker object.
 	 * @param filters - whether or not to invoke the packet listeners.
 	 * @throws InvocationTargetException If anything went wrong.
 	 */
-	void sendServerPacket(Player reciever, PacketContainer packet, NetworkMarker marker, boolean filters) throws InvocationTargetException {
-		NetworkObjectInjector networkObject = getInjector(reciever, true);
+	void sendServerPacket(Player receiver, PacketContainer packet, NetworkMarker marker, boolean filters) throws InvocationTargetException {
+		NetworkObjectInjector networkObject = getInjector(receiver, true);
 		
 		// If TRUE, process this packet like any other
 		if (filters)
@@ -562,10 +575,44 @@ public class SpigotPacketInjector implements SpigotPacketListener {
 		networkObject.processPacket(mcPacket);
 	}
 
+	@SuppressWarnings({"unchecked", "rawtypes"})
+	private void cleanupListener() {
+		Class<?> listenerClass = getSpigotListenerClass();
+				
+		// Yeah ... there's no easy way to remove the listener
+		synchronized (listenerClass) {
+			try {
+				Field listenersField = FieldUtils.getField(listenerClass, "listeners", true);
+				Field bakedField = FieldUtils.getField(listenerClass, "baked", true);
+
+				Map<Object, Plugin> listenerMap = (Map<Object, Plugin>) listenersField.get(null);
+				List<Object> listenerArray = Lists.newArrayList((Object[]) bakedField.get(null));
+
+				listenerMap.remove(dynamicListener);
+				listenerArray.remove(dynamicListener);
+				
+				// Save the array back
+				bakedField.set(null, Iterables.toArray(listenerArray, (Class)listenerClass));
+				
+				// Success
+				dynamicListener = null;
+			} catch (Exception e) {
+				reporter.reportWarning(this, Report.newBuilder(REPORT_CANNOT_CLEANUP_SPIGOT).
+					callerParam(dynamicListener).error(e));
+			}
+		}
+	}
+	
 	/**
 	 * Invoked when the server is cleaning up.
 	 */
 	public void cleanupAll() {
+		// Cleanup the Spigot listener
+		if (dynamicListener != null) {
+			cleanupListener();
+		}
+		
+		// Cleanup network marker
 		if (proxyPacketInjector != null) {
 			proxyPacketInjector.cleanupAll();
 		}

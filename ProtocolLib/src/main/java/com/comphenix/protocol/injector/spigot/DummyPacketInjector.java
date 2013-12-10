@@ -4,8 +4,8 @@ import java.util.Set;
 
 import org.bukkit.entity.Player;
 
-import com.comphenix.protocol.Packets;
-import com.comphenix.protocol.concurrency.IntegerSet;
+import com.comphenix.protocol.PacketType;
+import com.comphenix.protocol.concurrency.PacketTypeSet;
 import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.events.PacketEvent;
 import com.comphenix.protocol.injector.packet.PacketInjector;
@@ -16,71 +16,31 @@ import com.google.common.collect.Sets;
  * 
  * @author Kristian
  */
-class DummyPacketInjector implements PacketInjector {
-	private SpigotPacketInjector injector;
-	private IntegerSet reveivedFilters;
-	
-	private IntegerSet lastBufferedPackets = new IntegerSet(Packets.MAXIMUM_PACKET_ID + 1);
+class DummyPacketInjector extends AbstractPacketInjector implements PacketInjector {
+	private SpigotPacketInjector injector;	
+	private PacketTypeSet lastBufferedPackets = new PacketTypeSet();
 
-	public DummyPacketInjector(SpigotPacketInjector injector, IntegerSet reveivedFilters) {
+	public DummyPacketInjector(SpigotPacketInjector injector, PacketTypeSet reveivedFilters) {
+		super(reveivedFilters);
 		this.injector = injector;
-		this.reveivedFilters = reveivedFilters;
 	}
 
 	@Override
-	public boolean isCancelled(Object packet) {
-		// No, it's never cancelled
-		return false;
-	}
-	
-	@Override
-	public void setCancelled(Object packet, boolean cancelled) {
-		throw new UnsupportedOperationException();
-	}
-	
-	@Override
-	public void inputBuffersChanged(Set<Integer> set) {
-		Set<Integer> removed = Sets.difference(lastBufferedPackets.toSet(), set);
-		Set<Integer> added = Sets.difference(set, lastBufferedPackets.toSet());
+	public void inputBuffersChanged(Set<PacketType> set) {
+		Set<PacketType> removed = Sets.difference(lastBufferedPackets.values(), set);
+		Set<PacketType> added = Sets.difference(set, lastBufferedPackets.values());
 		
 		// Update the proxy packet injector
-		for (int packet : removed) {
+		for (PacketType packet : removed) {
 			injector.getProxyPacketInjector().removePacketHandler(packet);
 		}
-		for (int packet : added) {
-			injector.getProxyPacketInjector().addPacketHandler(packet);
+		for (PacketType packet : added) {
+			injector.getProxyPacketInjector().addPacketHandler(packet, null);
 		}
-	}
-
-	@Override
-	public boolean addPacketHandler(int packetID) {
-		reveivedFilters.add(packetID);
-		return true;
-	}
-
-	@Override
-	public boolean removePacketHandler(int packetID) {
-		reveivedFilters.remove(packetID);
-		return true;
-	}
-
-	@Override
-	public boolean hasPacketHandler(int packetID) {
-		return reveivedFilters.contains(packetID);
-	}
-
-	@Override
-	public Set<Integer> getPacketHandlers() {
-		return reveivedFilters.toSet();
 	}
 
 	@Override
 	public PacketEvent packetRecieved(PacketContainer packet, Player client, byte[] buffered) {
 		return injector.packetReceived(packet, client, buffered);
-	}
-
-	@Override
-	public void cleanupAll() {
-		reveivedFilters.clear();
 	}
 }

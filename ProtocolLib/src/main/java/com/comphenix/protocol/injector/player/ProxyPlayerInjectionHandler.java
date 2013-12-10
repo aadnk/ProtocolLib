@@ -34,12 +34,15 @@ import net.sf.cglib.proxy.Factory;
 import org.bukkit.Server;
 import org.bukkit.entity.Player;
 
+import com.comphenix.protocol.PacketType;
+import com.comphenix.protocol.PacketType.Sender;
 import com.comphenix.protocol.Packets;
 import com.comphenix.protocol.concurrency.BlockingHashMap;
 import com.comphenix.protocol.concurrency.IntegerSet;
 import com.comphenix.protocol.error.ErrorReporter;
 import com.comphenix.protocol.error.Report;
 import com.comphenix.protocol.error.ReportType;
+import com.comphenix.protocol.events.ListenerOptions;
 import com.comphenix.protocol.events.NetworkMarker;
 import com.comphenix.protocol.events.PacketAdapter;
 import com.comphenix.protocol.events.PacketContainer;
@@ -49,6 +52,7 @@ import com.comphenix.protocol.injector.GamePhase;
 import com.comphenix.protocol.injector.ListenerInvoker;
 import com.comphenix.protocol.injector.PlayerLoggedOutException;
 import com.comphenix.protocol.injector.PacketFilterManager.PlayerInjectHooks;
+import com.comphenix.protocol.injector.packet.PacketRegistry;
 import com.comphenix.protocol.injector.server.AbstractInputStreamLookup;
 import com.comphenix.protocol.injector.server.BukkitSocketInjector;
 import com.comphenix.protocol.injector.server.InputStreamLookupBuilder;
@@ -199,22 +203,14 @@ class ProxyPlayerInjectionHandler implements PlayerInjectionHandler {
 		checkListener(packetListeners);
 	}
 	
-	/**
-	 * Add an underlying packet handler of the given ID.
-	 * @param packetID - packet ID to register.
-	 */
 	@Override
-	public void addPacketHandler(int packetID) {
-		sendingFilters.add(packetID);
+	public void addPacketHandler(PacketType type, Set<ListenerOptions> options) {
+		sendingFilters.add(type.getLegacyId());
 	}
 	
-	/**
-	 * Remove an underlying packet handler of ths ID.  
-	 * @param packetID - packet ID to unregister.
-	 */
 	@Override
-	public void removePacketHandler(int packetID) {
-		sendingFilters.remove(packetID);
+	public void removePacketHandler(PacketType type) {
+		sendingFilters.remove(type.getLegacyId());
 	}
 
 	/**
@@ -529,15 +525,15 @@ class ProxyPlayerInjectionHandler implements PlayerInjectionHandler {
 	}
 	
 	/**
-	 * Send the given packet to the given reciever.
-	 * @param reciever - the player receiver.
+	 * Send the given packet to the given receiver.
+	 * @param receiver - the player receiver.
 	 * @param packet - the packet to send.
 	 * @param filters - whether or not to invoke the packet filters.
 	 * @throws InvocationTargetException If an error occured during sending.
 	 */
 	@Override
-	public void sendServerPacket(Player reciever, PacketContainer packet, NetworkMarker marker, boolean filters) throws InvocationTargetException {
-		SocketInjector injector = getInjector(reciever);
+	public void sendServerPacket(Player receiver, PacketContainer packet, NetworkMarker marker, boolean filters) throws InvocationTargetException {
+		SocketInjector injector = getInjector(receiver);
 		
 		// Send the packet, or drop it completely
 		if (injector != null) {
@@ -545,7 +541,7 @@ class ProxyPlayerInjectionHandler implements PlayerInjectionHandler {
 		} else {
 			throw new PlayerLoggedOutException(String.format(
 					"Unable to send packet %s (%s): Player %s has logged out.", 
-					packet.getID(), packet, reciever.getName()
+					packet.getType(), packet, receiver
 			));
 		}
 	}
@@ -567,7 +563,7 @@ class ProxyPlayerInjectionHandler implements PlayerInjectionHandler {
 		else
 			throw new PlayerLoggedOutException(String.format(
 					"Unable to receieve packet %s. Player %s has logged out.", 
-					mcPacket, player.getName()
+					mcPacket, player
 			));
 	}
 	
@@ -658,7 +654,7 @@ class ProxyPlayerInjectionHandler implements PlayerInjectionHandler {
 	
 	@Override
 	public PacketEvent handlePacketRecieved(PacketContainer packet, InputStream input, byte[] buffered) {
-		throw new UnsupportedOperationException("Proxy injection cannot handle recieved packets.");
+		throw new UnsupportedOperationException("Proxy injection cannot handle received packets.");
 	}
 	
 	/**
@@ -706,7 +702,7 @@ class ProxyPlayerInjectionHandler implements PlayerInjectionHandler {
 				
 				// These are illegal
 				for (int packetID : result.getPackets())
-					removePacketHandler(packetID);
+					removePacketHandler(PacketType.findLegacy(packetID));
 			}
 		}
 	}
@@ -716,8 +712,8 @@ class ProxyPlayerInjectionHandler implements PlayerInjectionHandler {
 	 * @return List of the sending listeners's packet IDs.
 	 */
 	@Override
-	public Set<Integer> getSendingFilters() {
-		return sendingFilters.toSet();
+	public Set<PacketType> getSendingFilters() {
+		return PacketRegistry.toPacketTypes(sendingFilters.toSet(), Sender.SERVER);
 	}
 	
 	@Override

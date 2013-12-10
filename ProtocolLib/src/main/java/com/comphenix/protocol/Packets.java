@@ -25,9 +25,11 @@ import com.comphenix.protocol.reflect.IntEnum;
 
 /**
  * List of known packet IDs since 1.3.2.
- * 
+ * <p>
+ * Deprecated: Use {@link PacketType} instead.
  * @author Kristian
  */
+@Deprecated
 public final class Packets {
 	
 	/**
@@ -42,8 +44,11 @@ public final class Packets {
 	
 	/**
 	 * List of packets sent only by the server.
+	 * <p>
+	 * Deprecated: Use {@link PacketType} instead.
 	 * @author Kristian
 	 */
+	@Deprecated
 	public static final class Server extends IntEnum {
 		/**
 		 * The singleton instance. Can also be retrieved from the parent class.
@@ -144,6 +149,16 @@ public final class Packets {
 		public static final int KICK_DISCONNECT = 255;
 		
 		/**
+		 * This packet was introduced in 1.7.2.
+		 */
+		public static final int PING_TIME = 230;
+		
+		/**
+		 * This packet was introduced in 1.7.2.
+		 */
+		public static final int LOGIN_SUCCESS = 232;
+		
+		/**
 		 * A registry that parses between names and packet IDs.
 		 * @return The current server registry.
 		 */
@@ -153,10 +168,13 @@ public final class Packets {
 		
 		/**
 		 * Determine if the given packet is a valid server packet in the current version of Minecraft.
+		 * <p>
+		 * Use {@link PacketType#isSupported()} instead.
 		 * @param packetID - the packet to test.
 		 * @return TRUE if this packet is supported, FALSE otherwise.
 		 * @throws FieldAccessException If we're unable to retrieve the server packet data from Minecraft.
 		 */
+		@Deprecated
 		public static boolean isSupported(int packetID) throws FieldAccessException {
 			return PacketFilterManager.getServerPackets().contains(packetID);
 		}
@@ -166,6 +184,7 @@ public final class Packets {
 		 * @return Every supported server packet.
 		 * @throws FieldAccessException If we're unable to retrieve the server packet data from Minecraft.
 		 */
+		@Deprecated
 		public static Set<Integer> getSupported() throws FieldAccessException {
 			return PacketFilterManager.getServerPackets();
 		}
@@ -178,8 +197,11 @@ public final class Packets {
 	
 	/**
 	 * List of packets sent by the client.
+	 * <p>
+	 * Deprecated: Use {@link PacketType} instead.
 	 * @author Kristian
 	 */
+	@Deprecated
 	public static class Client extends IntEnum {
 		/**
 		 * The singleton instance. Can also be retrieved from the parent class.
@@ -224,6 +246,16 @@ public final class Packets {
 		public static final int KICK_DISCONNECT = 255;
 		
 		/**
+		 * This packet was introduced in 1.7.2.
+		 */
+		public static final int PING_TIME = 230;
+		
+		/**
+		 * This packet was introduced in 1.7.2.
+		 */
+		public static final int LOGIN_START = 231;
+		
+		/**
 		 * A registry that parses between names and packet IDs.
 		 * @return The current client registry.
 		 */
@@ -258,25 +290,34 @@ public final class Packets {
 	
 	/**
 	 * A registry that parses between names and packet IDs.
+	 * <p>
+	 * Deprecated: Use {@link PacketType} instead.
 	 * @return The current client registry.
 	 */
+	@Deprecated
 	public static Server getServerRegistry() {
 		return Server.getRegistry();
 	}
 
 	/**
 	 * A registry that parses between names and packet IDs.
+	 * <p>
+	 * Deprecated: Use {@link PacketType} instead.
 	 * @return The current server registry.
 	 */
+	@Deprecated
 	public static Client getClientRegistry() {
 		return Client.INSTANCE;
 	}
 	
 	/**
 	 * Find a packet by name. Must be capitalized and use underscores.
+	 * <p>
+	 * Deprecated: Use {@link PacketType} instead.
 	 * @param name - name of packet to find.
 	 * @return The packet ID found.
 	 */
+	@Deprecated
 	public static int valueOf(String name) {
 		Integer serverAttempt = Server.INSTANCE.valueOf(name);
 		
@@ -288,9 +329,12 @@ public final class Packets {
 	
 	/**
 	 * Retrieves the name of a packet.
+	 * <p>
+	 * Deprecated: Use {@link PacketType} instead.
 	 * @param packetID - packet to retrieve name.
 	 * @return The name, or NULL if unable to find such a packet.
 	 */
+	@Deprecated
 	public static String getDeclaredName(int packetID) {
 		String serverAttempt = Server.INSTANCE.getDeclaredName(packetID);
 		

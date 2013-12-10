@@ -29,7 +29,9 @@ import net.sf.cglib.proxy.Factory;
 
 import org.bukkit.entity.Player;
 
+import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.Packets;
+import com.comphenix.protocol.PacketType.Sender;
 import com.comphenix.protocol.error.ErrorReporter;
 import com.comphenix.protocol.error.Report;
 import com.comphenix.protocol.error.ReportType;
@@ -388,7 +390,7 @@ public abstract class PlayerInjector implements SocketInjector {
 
 			// This is bad
 			if (currentHandler == null)
-				throw new IllegalAccessError("Unable to fetch server handler: was NUll.");
+				throw new ServerHandlerNull();
 			
 			// See if this isn't a standard net handler class
 			if (!isStandardMinecraftNetHandler(currentHandler)) {
@@ -581,6 +583,7 @@ public abstract class PlayerInjector implements SocketInjector {
 	 * @param packet - packet to sent.
 	 * @return The given packet, or the packet replaced by the listeners.
 	 */
+	@SuppressWarnings("deprecation")
 	public Object handlePacketSending(Object packet) {
 		try {
 			// Get the packet ID too
@@ -607,7 +610,8 @@ public abstract class PlayerInjector implements SocketInjector {
 				NetworkMarker marker = queuedMarkers.remove(packet);
 				
 				// A packet has been sent guys!
-				PacketContainer container = new PacketContainer(id, packet);
+				PacketType type = PacketType.findLegacy(id, Sender.SERVER);
+				PacketContainer container = new PacketContainer(type, packet);
 				PacketEvent event = PacketEvent.fromServer(invoker, container, marker, currentPlayer);
 				invoker.invokePacketSending(event);
 				
@@ -713,5 +717,23 @@ public abstract class PlayerInjector implements SocketInjector {
 	@Override
 	public void setUpdatedPlayer(Player updatedPlayer) {
 		this.updatedPlayer = updatedPlayer;
+	}
+	
+	/**
+	 * Indicates that a player's NetServerHandler or PlayerConnection was NULL.
+	 * <p>
+	 * This is usually because the player has just logged out, or due to it being a "fake" player in MCPC++.
+	 * @author Kristian
+	 */
+	public static class ServerHandlerNull extends IllegalAccessError {
+		private static final long serialVersionUID = 1L;
+
+		public ServerHandlerNull() {
+			super("Unable to fetch server handler: was NUll.");
+		}
+
+		public ServerHandlerNull(String s) {
+			super(s);
+		}
 	}
 }

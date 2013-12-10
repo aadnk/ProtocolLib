@@ -18,28 +18,45 @@
 package com.comphenix.protocol.wrappers;
 
 import java.lang.ref.WeakReference;
+import java.lang.reflect.Array;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
+import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.WorldType;
 import org.bukkit.entity.Entity;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 
+import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.ProtocolManager;
+import com.comphenix.protocol.injector.PacketConstructor;
+import com.comphenix.protocol.injector.PacketConstructor.Unwrapper;
 import com.comphenix.protocol.reflect.EquivalentConverter;
 import com.comphenix.protocol.reflect.FieldAccessException;
+import com.comphenix.protocol.reflect.FuzzyReflection;
+import com.comphenix.protocol.reflect.StructureModifier;
+import com.comphenix.protocol.reflect.accessors.Accessors;
+import com.comphenix.protocol.reflect.accessors.MethodAccessor;
+import com.comphenix.protocol.reflect.fuzzy.FuzzyMethodContract;
 import com.comphenix.protocol.reflect.instances.DefaultInstances;
 import com.comphenix.protocol.utility.MinecraftReflection;
 import com.comphenix.protocol.wrappers.nbt.NbtBase;
 import com.comphenix.protocol.wrappers.nbt.NbtCompound;
 import com.comphenix.protocol.wrappers.nbt.NbtFactory;
 import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 
 /**
  * Contains several useful equivalent converters for normal Bukkit types.
@@ -54,10 +71,19 @@ public class BukkitConverters {
 	// The static maps
 	private static Map<Class<?>, EquivalentConverter<Object>> specificConverters;
 	private static Map<Class<?>, EquivalentConverter<Object>> genericConverters;
+	private static List<Unwrapper> unwrappers;
 	
 	// Used to access the world type
 	private static Method worldTypeName;
 	private static Method worldTypeGetType;
+	
+	// Used to get block instances
+	private static MethodAccessor GET_BLOCK;
+	private static MethodAccessor GET_BLOCK_ID;
+	
+	// Used for potion effect conversion
+	private static volatile Constructor<?> mobEffectConstructor;
+	private static volatile StructureModifier<Object> mobEffectModifier;
 	
 	static {
 		try {
@@ -222,6 +248,104 @@ public class BukkitConverters {
 	}
 	
 	/**
+	 * Retrieve an equivalent converter for an array of generic items.
+	 * <p>
+	 * The array is wrapped in a list.
+	 * @param genericItemType - the generic item type.
+	 * @param itemConverter - an equivalent converter for the generic type.
+	 * @return An equivalent converter.
+	 */
+	public static <T> EquivalentConverter<Iterable<? extends T>> getArrayConverter(
+			final Class<?> genericItemType, final EquivalentConverter<T> itemConverter) {
+		// Convert to and from the wrapper
+		return new IgnoreNullConverter<Iterable<? extends T>>() {
+				@Override
+				protected List<T> getSpecificValue(Object generic) {
+					if (generic instanceof Object[]) {
+						ImmutableList.Builder<T> builder = ImmutableList.builder();
+
+						// Copy everything to a new list
+						for (Object item : (Object[]) generic) {
+							T result = itemConverter.getSpecific(item);
+							builder.add(result);
+						}
+						return builder.build();
+					}
+					
+					// Not valid
+					return null;
+				}
+
+				@Override
+				protected Object getGenericValue(Class<?> genericType, Iterable<? extends T> specific) {
+					List<T> list = Lists.newArrayList(specific);
+					Object[] output = (Object[]) Array.newInstance(genericType, list.size());
+					
+					// Convert each object
+					for (int i = 0; i < output.length; i++) {
+						Object converted = itemConverter.getGeneric(genericItemType, list.get(i));
+						output[i] = converted;
+					}
+					return output;
+				}
+
+				@SuppressWarnings("unchecked")
+				@Override
+				public Class<Iterable<? extends T>> getSpecificType() {
+					// Damn you Java
+					Class<?> dummy = Iterable.class;
+					return (Class<Iterable<? extends T>>) dummy;
+				}
+			};
+	}
+	
+	/**
+	 * Retrieve a converter for wrapped attribute snapshots.
+	 * @return Wrapped attribute snapshot converter.
+	 */
+	public static EquivalentConverter<WrappedGameProfile> getWrappedGameProfileConverter() {
+		return new IgnoreNullConverter<WrappedGameProfile>() {
+			@Override
+			protected Object getGenericValue(Class<?> genericType, WrappedGameProfile specific) {
+				return specific.getHandle();
+			}
+			
+			@Override
+			protected WrappedGameProfile getSpecificValue(Object generic) {
+				return WrappedGameProfile.fromHandle(generic);
+			}
+			
+			@Override
+			public Class<WrappedGameProfile> getSpecificType() {
+				return WrappedGameProfile.class;
+			}
+		};
+	}
+	
+	/**
+	 * Retrieve a converter for wrapped chat components.
+	 * @return Wrapped chat componetns.
+	 */
+	public static EquivalentConverter<WrappedChatComponent> getWrappedChatComponentConverter() {
+		return new IgnoreNullConverter<WrappedChatComponent>() {
+			@Override
+			protected Object getGenericValue(Class<?> genericType, WrappedChatComponent specific) {
+				return specific.getHandle();
+			}
+			
+			@Override
+			protected WrappedChatComponent getSpecificValue(Object generic) {
+				return WrappedChatComponent.fromHandle(generic);
+			}
+			
+			@Override
+			public Class<WrappedChatComponent> getSpecificType() {
+				return WrappedChatComponent.class;
+			}
+		};
+	}
+	
+	/**
 	 * Retrieve a converter for wrapped attribute snapshots.
 	 * @return Wrapped attribute snapshot converter.
 	 */
@@ -308,12 +432,17 @@ public class BukkitConverters {
 		if (!hasWorldType)
 			return null;
 		
+		final Class<?> worldType = MinecraftReflection.getWorldTypeClass();
+		
 		return new IgnoreNullConverter<WorldType>() {
 			@Override
 			protected Object getGenericValue(Class<?> genericType, WorldType specific) {
 				try {
-					if (worldTypeGetType == null)
-						worldTypeGetType = MinecraftReflection.getWorldTypeClass().getMethod("getType", String.class);
+					// Deduce getType method by parameters alone
+					if (worldTypeGetType == null) {
+						worldTypeGetType = FuzzyReflection.fromClass(worldType).
+								getMethodByParameters("getType", worldType, new Class<?>[] { String.class });
+					}
 					
 					// Convert to the Bukkit world type
 					return worldTypeGetType.invoke(this, specific.getName());
@@ -326,8 +455,15 @@ public class BukkitConverters {
 			@Override
 			protected WorldType getSpecificValue(Object generic) {
 				try {
-					if (worldTypeName == null)
-						worldTypeName = MinecraftReflection.getWorldTypeClass().getMethod("name");
+					if (worldTypeName == null) {
+						try {
+							worldTypeName = worldType.getMethod("name");
+						} catch (Exception e) {
+							// Assume the first method is the one
+							worldTypeName = FuzzyReflection.fromClass(worldType).
+								getMethodByParameters("name", String.class, new Class<?>[] {});
+						}
+					}
 					
 					// Dynamically call the namne method
 					String name = (String) worldTypeName.invoke(generic);
@@ -358,7 +494,7 @@ public class BukkitConverters {
 			
 			@Override
 			protected NbtBase<?> getSpecificValue(Object generic) {
-				return NbtFactory.fromNMS(generic);
+				return NbtFactory.fromNMS(generic, null);
 			}
 			
 			@Override
@@ -436,6 +572,119 @@ public class BukkitConverters {
 	}
 	
 	/**
+	 * Retrieve the converter for the ServerPing packet in {@link PacketType.Status.Server#OUT_SERVER_INFO}.
+	 * @return Server ping converter.
+	 */
+	public static EquivalentConverter<WrappedServerPing> getWrappedServerPingConverter() {
+		return new IgnoreNullConverter<WrappedServerPing>() {
+			@Override
+			protected Object getGenericValue(Class<?> genericType, WrappedServerPing specific) {
+				return specific.getHandle();
+			}
+			
+			@Override
+			protected WrappedServerPing getSpecificValue(Object generic) {
+				return WrappedServerPing.fromHandle(generic);
+			}
+			
+			@Override
+			public Class<WrappedServerPing> getSpecificType() {
+				return WrappedServerPing.class;
+			}
+		};
+	}
+	
+	/**
+	 * Retrieve a converter for block instances.
+	 * @return A converter for block instances.
+	 */
+	public static EquivalentConverter<Material> getBlockConverter() {
+		// Initialize if we have't already
+		if (GET_BLOCK == null || GET_BLOCK_ID == null) {
+			Class<?> block = MinecraftReflection.getBlockClass();
+			
+			FuzzyMethodContract getIdContract = FuzzyMethodContract.newBuilder().
+					parameterExactArray(block).
+					requireModifier(Modifier.STATIC).
+					build();
+			FuzzyMethodContract getBlockContract = FuzzyMethodContract.newBuilder().
+					parameterExactArray(int.class).
+					requireModifier(Modifier.STATIC).
+					build();
+			GET_BLOCK = Accessors.getMethodAccessor(FuzzyReflection.fromClass(block).getMethod(getBlockContract));
+			GET_BLOCK_ID = Accessors.getMethodAccessor(FuzzyReflection.fromClass(block).getMethod(getIdContract));
+		}
+		
+		return new IgnoreNullConverter<Material>() {
+			@Override
+			protected Object getGenericValue(Class<?> genericType, Material specific) {
+				return GET_BLOCK.invoke(null, specific.getId());
+			}
+			
+			@Override
+			protected Material getSpecificValue(Object generic) {
+				return Material.getMaterial((Integer) GET_BLOCK_ID.invoke(null, generic));
+			}
+			
+			@Override
+			public Class<Material> getSpecificType() {
+				return Material.class;
+			}
+		};
+	}
+	
+	/**
+	 * Retrieve the converter used to convert between a PotionEffect and the equivalent NMS Mobeffect.
+	 * @return The potion effect converter.
+	 */
+	public static EquivalentConverter<PotionEffect> getPotionEffectConverter() {		
+		return new IgnoreNullConverter<PotionEffect>() {
+			@Override
+			protected Object getGenericValue(Class<?> genericType, PotionEffect specific) {
+				// Locate the constructor
+				if (mobEffectConstructor == null) {
+					try {
+						mobEffectConstructor = MinecraftReflection.getMobEffectClass().
+								getConstructor(int.class, int.class, int.class, boolean.class);
+					} catch (Exception e) {
+						throw new RuntimeException("Cannot find mob effect constructor (int, int, int, boolean).", e);
+					}
+				}
+				
+				// Create the generic value
+				try {
+					return mobEffectConstructor.newInstance(
+						specific.getType().getId(), specific.getDuration(), 
+						specific.getAmplifier(), specific.isAmbient());
+				} catch (Exception e) {
+					throw new RuntimeException("Cannot construct MobEffect.", e);
+				}
+			}
+			
+			@Override
+			protected PotionEffect getSpecificValue(Object generic) {
+				if (mobEffectModifier == null) {
+					mobEffectModifier = new StructureModifier<Object>(MinecraftReflection.getMobEffectClass(), false);
+				}
+				StructureModifier<Integer> ints = mobEffectModifier.withTarget(generic).withType(int.class);
+				StructureModifier<Boolean> bools = mobEffectModifier.withTarget(generic).withType(boolean.class);
+				
+				return new PotionEffect(
+					PotionEffectType.getById(ints.read(0)), 	/* effectId */
+					ints.read(1),  								/* duration */
+					ints.read(2), 								/* amplification */
+					bools.read(1)								/* ambient */
+				);
+			}
+			
+			@Override
+			public Class<PotionEffect> getSpecificType() {
+				return PotionEffect.class;
+			}
+		};
+	}
+	
+ 	/**
 	 * Wraps a given equivalent converter in NULL checks, ensuring that such values are ignored.
 	 * @param delegate - the underlying equivalent converter.
 	 * @return A equivalent converter that ignores NULL values.
@@ -461,6 +710,31 @@ public class BukkitConverters {
 	}
 	
 	/**
+	 * Retrieve an equivalent unwrapper for the converter.
+	 * @param nativeType - the native NMS type the converter produces.
+	 * @param converter - the converter.
+	 * @return The equivalent unwrapper.
+	 */
+	public static Unwrapper asUnwrapper(final Class<?> nativeType, final EquivalentConverter<Object> converter) {
+		return new Unwrapper() {
+			@SuppressWarnings("rawtypes")
+			@Override
+			public Object unwrapItem(Object wrappedObject) {
+				Class<?> type = PacketConstructor.getClass(wrappedObject);
+				
+				// Ensure the type is correct before we test
+				if (converter.getSpecificType().isAssignableFrom(type)) {
+					if (wrappedObject instanceof Class)
+						return nativeType;
+					else
+						return converter.getGeneric((Class) nativeType, wrappedObject);
+				}
+				return null;
+			}
+		};
+	}
+	
+	/**
 	 * Retrieve every converter that is associated with a specific class.
 	 * @return Every converter with a unique specific class.
 	 */
@@ -474,7 +748,19 @@ public class BukkitConverters {
 				put(ItemStack.class, (EquivalentConverter) getItemStackConverter()).
 				put(NbtBase.class, (EquivalentConverter) getNbtConverter()).
 				put(NbtCompound.class, (EquivalentConverter) getNbtConverter()).
-				put(WrappedWatchableObject.class, (EquivalentConverter) getWatchableObjectConverter());
+				put(WrappedWatchableObject.class, (EquivalentConverter) getWatchableObjectConverter()).
+				put(PotionEffect.class, (EquivalentConverter) getPotionEffectConverter());
+			
+			// Types added in 1.7.2
+			if (MinecraftReflection.isUsingNetty()) {
+				builder.put(WrappedGameProfile.class, (EquivalentConverter) getWrappedGameProfileConverter());
+				builder.put(WrappedChatComponent.class, (EquivalentConverter) getWrappedChatComponentConverter());	
+				builder.put(WrappedServerPing.class, (EquivalentConverter) getWrappedServerPingConverter());
+				
+				for (Entry<Class<?>, EquivalentConverter<?>> entry : EnumWrappers.getFromWrapperMap().entrySet()) {
+					builder.put((Class) entry.getKey(), (EquivalentConverter) entry.getValue());
+				}
+			}
 			
 			if (hasWorldType) 
 				builder.put(WorldType.class, (EquivalentConverter) getWorldTypeConverter());
@@ -499,14 +785,42 @@ public class BukkitConverters {
 				put(MinecraftReflection.getItemStackClass(), (EquivalentConverter) getItemStackConverter()).
 				put(MinecraftReflection.getNBTBaseClass(), (EquivalentConverter) getNbtConverter()).
 				put(MinecraftReflection.getNBTCompoundClass(), (EquivalentConverter) getNbtConverter()).
-				put(MinecraftReflection.getWatchableObjectClass(), (EquivalentConverter) getWatchableObjectConverter());
-			
+				put(MinecraftReflection.getWatchableObjectClass(), (EquivalentConverter) getWatchableObjectConverter()).
+				put(MinecraftReflection.getMobEffectClass(), (EquivalentConverter) getPotionEffectConverter());
+				
 			if (hasWorldType)
 				builder.put(MinecraftReflection.getWorldTypeClass(), (EquivalentConverter) getWorldTypeConverter());
 			if (hasAttributeSnapshot)
 				builder.put(MinecraftReflection.getAttributeSnapshotClass(), (EquivalentConverter) getWrappedAttributeConverter());
+			
+			// Types added in 1.7.2
+			if (MinecraftReflection.isUsingNetty()) {
+				builder.put(MinecraftReflection.getGameProfileClass(), (EquivalentConverter) getWrappedGameProfileConverter());
+				builder.put(MinecraftReflection.getIChatBaseComponentClass(), (EquivalentConverter) getWrappedChatComponentConverter());
+				builder.put(MinecraftReflection.getServerPingClass(), (EquivalentConverter) getWrappedServerPingConverter());
+				
+				for (Entry<Class<?>, EquivalentConverter<?>> entry : EnumWrappers.getFromNativeMap().entrySet()) {
+					builder.put((Class) entry.getKey(), (EquivalentConverter) entry.getValue());
+				}
+			}
 			genericConverters = builder.build();
 		}
 		return genericConverters;
+	}
+	
+	/**
+	 * Retrieve every NMS <-> Bukkit converter as unwrappers.
+	 * @return Every unwrapper.
+	 */
+	public static List<Unwrapper> getUnwrappers() {
+		if (unwrappers == null) {
+			ImmutableList.Builder<Unwrapper> builder = ImmutableList.builder();
+			
+			for (Map.Entry<Class<?>, EquivalentConverter<Object>> entry : getConvertersForGeneric().entrySet()) {
+				builder.add(asUnwrapper(entry.getKey(), entry.getValue()));
+			}
+			unwrappers = builder.build();
+		}
+		return unwrappers;
 	}
 }

@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.comphenix.protocol</groupId>
   <artifactId>ProtocolLib</artifactId>
-  <version>2.7.2</version>
+  <version>3.0.1</version>
   <packaging>jar</packaging>
   <description>Provides read/write access to the Minecraft protocol.</description>
   
@@ -91,6 +91,23 @@
         </configuration>
       </plugin>
 
+	  <plugin>
+  	  	<groupId>org.apache.maven.plugins</groupId>
+  		<artifactId>maven-failsafe-plugin</artifactId>
+  		<version>2.12.4</version>
+  		<configuration>
+  			<workingDirectory>${basedir}/target/server/</workingDirectory>
+        	<argLine>-Xmx1024m -Xms1024M -Dnojline=true</argLine>
+        </configuration>
+  		<executions>
+    		<execution>
+     			<goals>
+      	  			<goal>integration-test</goal>
+        			<goal>verify</goal>
+     			</goals>
+    		</execution>
+  		</executions>
+	  </plugin>
     </plugins>
   </build>
   
@@ -146,7 +163,7 @@
             </execution>
           </executions>
         </plugin>
-      
+            
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-gpg-plugin</artifactId>
@@ -214,7 +231,7 @@
   	<dependency>
   		<groupId>org.bukkit</groupId>
   		<artifactId>craftbukkit</artifactId>
-  		<version>1.6.2-R0.1-SNAPSHOT</version>
+  		<version>1.7.2-R0.1-SNAPSHOT</version>
   		<scope>provided</scope>
   	</dependency>
   	<dependency>

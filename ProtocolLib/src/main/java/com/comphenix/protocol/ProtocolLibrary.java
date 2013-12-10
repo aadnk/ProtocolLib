@@ -33,6 +33,7 @@ import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import com.comphenix.executors.BukkitExecutors;
 import com.comphenix.protocol.async.AsyncFilterManager;
 import com.comphenix.protocol.error.BasicErrorReporter;
 import com.comphenix.protocol.error.DelegatedErrorReporter;
@@ -47,12 +48,14 @@ import com.comphenix.protocol.injector.PacketFilterManager.PlayerInjectHooks;
 import com.comphenix.protocol.metrics.Statistics;
 import com.comphenix.protocol.metrics.Updater;
 import com.comphenix.protocol.metrics.Updater.UpdateResult;
+import com.comphenix.protocol.metrics.Updater.UpdateType;
 import com.comphenix.protocol.reflect.compiler.BackgroundCompiler;
 import com.comphenix.protocol.utility.ChatExtensions;
 import com.comphenix.protocol.utility.MinecraftVersion;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 
 /**
  * The main entry point for ProtocolLib.
@@ -71,7 +74,7 @@ public class ProtocolLibrary extends JavaPlugin {
 	public static final ReportType REPORT_METRICS_IO_ERROR = new ReportType("Unable to enable metrics due to network problems.");
 	public static final ReportType REPORT_METRICS_GENERIC_ERROR = new ReportType("Unable to enable metrics due to network problems.");
 	
-	public static final ReportType REPORT_CANNOT_PARSE_MINECRAFT_VERSION = new ReportType("Unable to retrieve current Minecraft version.");
+	public static final ReportType REPORT_CANNOT_PARSE_MINECRAFT_VERSION = new ReportType("Unable to retrieve current Minecraft version. Assuming %s");
 	public static final ReportType REPORT_CANNOT_DETECT_CONFLICTING_PLUGINS = new ReportType("Unable to detect conflicting plugin versions.");
 	public static final ReportType REPORT_CANNOT_REGISTER_COMMAND = new ReportType("Cannot register command %s: %s");
 	
@@ -93,6 +96,10 @@ public class ProtocolLibrary extends JavaPlugin {
 	 */
 	public static final String MINECRAFT_LAST_RELEASE_DATE = "2013-07-08";
 	
+	// Update information
+	static final String BUKKIT_DEV_SLUG = "protocollib";
+	static final int BUKKIT_DEV_ID = 45564;
+	
 	/**
 	 * The number of milliseconds per second.
 	 */
@@ -108,12 +115,16 @@ public class ProtocolLibrary extends JavaPlugin {
 	
 	// Metrics and statistisc
 	private Statistics statistisc;
+
+	// Executors
+	private static ListeningScheduledExecutorService executorAsync;
+	private static ListeningScheduledExecutorService executorSync;
 	
 	// Structure compiler
 	private BackgroundCompiler backgroundCompiler;
 	
-	// Used to clean up server packets that have expired. 
-	// But mostly required to simulate recieving client packets.
+	// Used to clean up server packets that have expired. But mostly required to simulate 
+	// recieving client packets.
 	private int asyncPacketTask = -1;
 	private int tickCounter = 0;
 	private static final int ASYNC_PACKET_DELAY = 1;
@@ -126,7 +137,7 @@ public class ProtocolLibrary extends JavaPlugin {
 	
 	// Updater
 	private Updater updater;
-	private boolean updateDisabled;
+	private static boolean UPDATES_DISABLED;
 	
 	// Logger
 	private Logger logger;
@@ -136,7 +147,7 @@ public class ProtocolLibrary extends JavaPlugin {
 	private CommandProtocol commandProtocol;
 	private CommandPacket commandPacket;
 	private CommandFilter commandFilter;
-	
+		
 	// Whether or not disable is not needed
 	private boolean skipDisable;
 	
@@ -144,6 +155,10 @@ public class ProtocolLibrary extends JavaPlugin {
 	public void onLoad() {
 		// Load configuration
 		logger = getLoggerSafely();
+		
+		// Initialize executors
+		executorAsync = BukkitExecutors.newAsynchronous(this);
+		executorSync = BukkitExecutors.newSynchronous(this);
 		
 		// Add global parameters
 		DetailedErrorReporter detailedReporter = new DetailedErrorReporter(this);
@@ -179,8 +194,8 @@ public class ProtocolLibrary extends JavaPlugin {
 			// Handle unexpected Minecraft versions
 			MinecraftVersion version = verifyMinecraftVersion();
 			
-			// Set updater
-			updater = new Updater(this, logger, "protocollib", getFile(), "protocol.info");
+			// Set updater - this will not perform any update automatically
+			updater = new Updater(this, BUKKIT_DEV_ID, getFile(), UpdateType.NO_DOWNLOAD, true);
 			
 			unhookTask = new DelayedSingleTask(this);
 			protocolManager = PacketFilterManager.newBuilder().
@@ -367,9 +382,10 @@ public class ProtocolLibrary extends JavaPlugin {
 	
 	// Used to check Minecraft version
 	private MinecraftVersion verifyMinecraftVersion() {
+		MinecraftVersion minimum = new MinecraftVersion(MINIMUM_MINECRAFT_VERSION);
+		MinecraftVersion maximum = new MinecraftVersion(MAXIMUM_MINECRAFT_VERSION);
+		
 		try {
-			MinecraftVersion minimum = new MinecraftVersion(MINIMUM_MINECRAFT_VERSION);
-			MinecraftVersion maximum = new MinecraftVersion(MAXIMUM_MINECRAFT_VERSION);
 			MinecraftVersion current = new MinecraftVersion(getServer());
 
 			// Skip certain versions
@@ -383,11 +399,12 @@ public class ProtocolLibrary extends JavaPlugin {
 			return current;
 
 		} catch (Exception e) {
-			reporter.reportWarning(this, Report.newBuilder(REPORT_CANNOT_PARSE_MINECRAFT_VERSION).error(e));
+			reporter.reportWarning(this, 
+				Report.newBuilder(REPORT_CANNOT_PARSE_MINECRAFT_VERSION).error(e).messageParam(maximum));
+			
+			// Unknown version - just assume it is the latest
+			return maximum;
 		}
-		
-		// Unknown version
-		return null;
 	}
 
 	private void checkConflictingVersions() {
@@ -477,7 +494,7 @@ public class ProtocolLibrary extends JavaPlugin {
 					manager.sendProcessedPackets(tickCounter++, true);
 					
 					// Check for updates too
-					if (!updateDisabled) {
+					if (!UPDATES_DISABLED) {
 						checkUpdates();
 					}
 				}
@@ -498,7 +515,7 @@ public class ProtocolLibrary extends JavaPlugin {
 			long updateTime = config.getAutoLastTime() + config.getAutoDelay();
 
 			// Should we update?
-			if (currentTime > updateTime) {		
+			if (currentTime > updateTime && !updater.isChecking()) {		
 				// Initiate the update as if it came from the console
 				if (config.isAutoDownload())
 					commandProtocol.updateVersion(getServer().getConsoleSender());
@@ -509,7 +526,7 @@ public class ProtocolLibrary extends JavaPlugin {
 			}
 		} catch (Exception e) {
 			reporter.reportDetailed(this, Report.newBuilder(REPORT_CANNOT_UPDATE_PLUGIN).error(e));
-			updateDisabled = true;
+			UPDATES_DISABLED = true;
 		}
 	}
 	
@@ -518,6 +535,9 @@ public class ProtocolLibrary extends JavaPlugin {
 		if (skipDisable) {
 			return;
 		}
+		
+		// Bukkit will shut down tasks on our executors
+		// ...
 		
 		// Disable compiler
 		if (backgroundCompiler != null) {
@@ -597,5 +617,25 @@ public class ProtocolLibrary extends JavaPlugin {
 	 */
 	public Statistics getStatistics() {
 		return statistisc;
+	}
+	
+	/**
+	 * Retrieve an executor service for performing asynchronous tasks on the behalf of ProtocolLib.
+	 * <p>
+	 * Note that this service is NULL if ProtocolLib has not been initialized yet.
+	 * @return The executor service, or NULL.
+	 */
+	public static ListeningScheduledExecutorService getExecutorAsync() {
+		return executorAsync;
+	}
+	
+	/**
+	 * Retrieve an executor service for performing synchronous tasks (main thread) on the behalf of ProtocolLib.
+	 * <p>
+	 * Note that this service is NULL if ProtocolLib has not been initialized yet.
+	 * @return The executor service, or NULL.
+	 */
+	public static ListeningScheduledExecutorService getExecutorSync() {
+		return executorSync;
 	}
 }

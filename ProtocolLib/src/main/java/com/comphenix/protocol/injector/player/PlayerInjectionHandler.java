@@ -7,6 +7,8 @@ import java.net.InetSocketAddress;
 import java.util.Set;
 import org.bukkit.entity.Player;
 
+import com.comphenix.protocol.PacketType;
+import com.comphenix.protocol.events.ListenerOptions;
 import com.comphenix.protocol.events.NetworkMarker;
 import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.events.PacketEvent;
@@ -59,16 +61,17 @@ public interface PlayerInjectionHandler {
 	public abstract void setPlayerHook(GamePhase phase, PlayerInjectHooks playerHook);
 
 	/**
-	 * Add an underlying packet handler of the given ID.
-	 * @param packetID - packet ID to register.
+	 * Add an underlying packet handler of the given type.
+	 * @param type - packet type to register.
+	 * @param options - any specified listener options.
 	 */
-	public abstract void addPacketHandler(int packetID);
+	public abstract void addPacketHandler(PacketType type, Set<ListenerOptions> options);
 
 	/**
-	 * Remove an underlying packet handler of ths ID.  
-	 * @param packetID - packet ID to unregister.
+	 * Remove an underlying packet handler of this type.  
+	 * @param type - packet type to unregister.
 	 */
-	public abstract void removePacketHandler(int packetID);
+	public abstract void removePacketHandler(PacketType type);
 
 	/**
 	 * Retrieve a player by its DataInput connection.
@@ -113,14 +116,14 @@ public interface PlayerInjectionHandler {
 	public abstract boolean uninjectPlayer(InetSocketAddress address);
 
 	/**
-	 * Send the given packet to the given reciever.
-	 * @param reciever - the player receiver.
+	 * Send the given packet to the given receiver.
+	 * @param receiver - the player receiver.
 	 * @param packet - the packet to send.
 	 * @param marker 
 	 * @param filters - whether or not to invoke the packet filters.
-	 * @throws InvocationTargetException If an error occured during sending.
+	 * @throws InvocationTargetException If an error occurred during sending.
 	 */
-	public abstract void sendServerPacket(Player reciever, PacketContainer packet, NetworkMarker marker, boolean filters)
+	public abstract void sendServerPacket(Player receiver, PacketContainer packet, NetworkMarker marker, boolean filters)
 			throws InvocationTargetException;
 
 	/**
@@ -157,17 +160,17 @@ public interface PlayerInjectionHandler {
 	 * Retrieve the current list of registered sending listeners.
 	 * @return List of the sending listeners's packet IDs.
 	 */
-	public abstract Set<Integer> getSendingFilters();
+	public abstract Set<PacketType> getSendingFilters();
 
 	/**
-	 * Whether or not this player injection handler can also recieve packets.
+	 * Whether or not this player injection handler can also receive packets.
 	 * @return TRUE if it can, FALSE otherwise.
 	 */
 	public abstract boolean canRecievePackets();
 	
 	/**
-	 * Invoked if this player injection handler can process recieved packets.
-	 * @param packet - the recieved packet.
+	 * Invoked if this player injection handler can process received packets.
+	 * @param packet - the received packet.
 	 * @param input - the input stream.
 	 * @param buffered - the buffered packet.
 	 * @return The packet event.

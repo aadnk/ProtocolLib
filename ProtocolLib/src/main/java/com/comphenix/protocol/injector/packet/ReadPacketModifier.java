@@ -23,6 +23,8 @@ import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.util.Map;
 
+import com.comphenix.protocol.PacketType;
+import com.comphenix.protocol.PacketType.Sender;
 import com.comphenix.protocol.error.ErrorReporter;
 import com.comphenix.protocol.error.Report;
 import com.comphenix.protocol.error.ReportType;
@@ -96,6 +98,7 @@ class ReadPacketModifier implements MethodInterceptor {
 		return getOverride(packet) == CANCEL_MARKER;
 	}
 	
+	@SuppressWarnings("deprecation")
 	@Override
 	public Object intercept(Object thisObj, Method method, Object[] args, MethodProxy proxy) throws Throwable {
 		// Atomic retrieval
@@ -139,7 +142,8 @@ class ReadPacketModifier implements MethodInterceptor {
 				byte[] buffer = bufferStream != null ? bufferStream.toByteArray() : null;
 				
 				// Let the people know
-				PacketContainer container = new PacketContainer(packetID, thisObj);
+				PacketType type = PacketType.findLegacy(packetID, Sender.CLIENT);
+				PacketContainer container = new PacketContainer(type, thisObj);
 				PacketEvent event = packetInjector.packetRecieved(container, input, buffer);
 				
 				// Handle override

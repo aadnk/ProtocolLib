@@ -22,9 +22,12 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.lang.ref.WeakReference;
 import java.util.EventObject;
+
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Cancellable;
 
+import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.async.AsyncMarker;
 import com.google.common.base.Preconditions;
 
@@ -137,6 +140,19 @@ public class PacketEvent extends EventObject implements Cancellable {
 	}
 	
 	/**
+	 * Determine if we are executing the packet event in an asynchronous thread.
+	 * <p>
+	 * If so, you must synchronize all calls to the Bukkit API.
+	 * <p>
+	 * Generally, most server packets are executed on the main thread, whereas client packets
+	 * are all executed asynchronously.
+	 * @return TRUE if we are, FALSE otherwise.
+	 */
+	public boolean isAsync() {
+		return !Bukkit.isPrimaryThread();
+	}
+	
+	/**
 	 * Retrieves the packet that will be sent to the player.
 	 * @return Packet to send to the player.
 	 */
@@ -156,10 +172,21 @@ public class PacketEvent extends EventObject implements Cancellable {
 	
 	/**
 	 * Retrieves the packet ID.
+	 * <p>
+	 * Deprecated: Use {@link #getPacketType()} instead.
 	 * @return The current packet ID.
 	 */
+	@Deprecated
 	public int getPacketID() {
 		return packet.getID();
+	}
+	
+	/**
+	 * Retrieve the packet type.
+	 * @return The type.
+	 */
+	public PacketType getPacketType() {
+		return packet.getType();
 	}
 	
 	/**
@@ -180,8 +207,8 @@ public class PacketEvent extends EventObject implements Cancellable {
 	public NetworkMarker getNetworkMarker() {
 		if (networkMarker == null) {
 			if (isServerPacket()) {
-				networkMarker = new NetworkMarker(
-					serverPacket ? ConnectionSide.SERVER_SIDE : ConnectionSide.CLIENT_SIDE, null);
+				networkMarker = new NetworkMarker.EmptyBufferMarker(
+					serverPacket ? ConnectionSide.SERVER_SIDE : ConnectionSide.CLIENT_SIDE);
 			} else {
 				throw new IllegalStateException("Add the option ListenerOptions.INTERCEPT_INPUT_BUFFER to your listener.");
 			}

@@ -19,13 +19,15 @@ package com.comphenix.protocol.async;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 
 import org.bukkit.entity.Player;
 
+import com.comphenix.protocol.PacketType;
+import com.comphenix.protocol.concurrency.ConcurrentPlayerMap;
 import com.comphenix.protocol.error.ErrorReporter;
 import com.comphenix.protocol.events.PacketEvent;
 import com.comphenix.protocol.injector.SortedPacketListenerList;
@@ -37,9 +39,8 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
  * @author Kristian
  */
 class PlayerSendingHandler {
-	
 	private ErrorReporter reporter;
-	private ConcurrentHashMap<String, QueueContainer> playerSendingQueues;
+	private ConcurrentMap<Player, QueueContainer> playerSendingQueues;
 	
 	// Timeout listeners
 	private SortedPacketListenerList serverTimeoutListeners;
@@ -105,7 +106,7 @@ class PlayerSendingHandler {
 		this.clientTimeoutListeners = clientTimeoutListeners;
 		
 		// Initialize storage of queues
-		this.playerSendingQueues = new ConcurrentHashMap<String, QueueContainer>();
+		this.playerSendingQueues = ConcurrentPlayerMap.usingAddress();
 	}
 	
 	/**
@@ -137,15 +138,14 @@ class PlayerSendingHandler {
 	 * @return The server or client sending queue the packet belongs to.
 	 */
 	public PacketSendingQueue getSendingQueue(PacketEvent packet, boolean createNew) {
-		String name =  packet.getPlayer().getName();
-		QueueContainer queues = playerSendingQueues.get(name);
+		QueueContainer queues = playerSendingQueues.get(packet.getPlayer());
 		
 		// Safe concurrent initialization
 		if (queues == null && createNew) {
 			final QueueContainer newContainer = new QueueContainer();
 
 			// Attempt to map the queue
-			queues = playerSendingQueues.putIfAbsent(name, newContainer);
+			queues = playerSendingQueues.putIfAbsent(packet.getPlayer(), newContainer);
 			
 			if (queues == null) {
 				queues = newContainer;
@@ -173,13 +173,13 @@ class PlayerSendingHandler {
 	
 	/**
 	 * Immediately send every server packet with the given list of IDs.
-	 * @param ids - ID of every packet to send immediately.
+	 * @param types - types of every packet to send immediately.
 	 * @param synchronusOK - whether or not we're running on the main thread. 
 	 */
-	public void sendServerPackets(List<Integer> ids, boolean synchronusOK) {
+	public void sendServerPackets(List<PacketType> types, boolean synchronusOK) {
 		if (!cleaningUp) {
 			for (QueueContainer queue : playerSendingQueues.values()) {
-				queue.getServerQueue().signalPacketUpdate(ids, synchronusOK);
+				queue.getServerQueue().signalPacketUpdate(types, synchronusOK);
 			}
 		}
 	}
@@ -189,10 +189,10 @@ class PlayerSendingHandler {
 	 * @param ids - ID of every packet to send immediately.
 	 * @param synchronusOK - whether or not we're running on the main thread. 
 	 */
-	public void sendClientPackets(List<Integer> ids, boolean synchronusOK) {
+	public void sendClientPackets(List<PacketType> types, boolean synchronusOK) {
 		if (!cleaningUp) {
 			for (QueueContainer queue : playerSendingQueues.values()) {
-				queue.getClientQueue().signalPacketUpdate(ids, synchronusOK);
+				queue.getClientQueue().signalPacketUpdate(types, synchronusOK);
 			}
 		}
 	}
@@ -258,9 +258,7 @@ class PlayerSendingHandler {
 	 * @param player - the player that just logged out.
 	 */
 	public void removePlayer(Player player) {
-		String name = player.getName();
-		
 		// Every packet will be dropped - there's nothing we can do
-		playerSendingQueues.remove(name);
+		playerSendingQueues.remove(player);
 	}
 }

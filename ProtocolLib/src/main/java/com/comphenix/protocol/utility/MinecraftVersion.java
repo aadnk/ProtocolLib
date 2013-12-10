@@ -17,6 +17,7 @@
 
 package com.comphenix.protocol.utility;
 
+import java.io.Serializable;
 import java.text.SimpleDateFormat;
 import java.util.Locale;
 import java.util.regex.Matcher;
@@ -34,11 +35,33 @@ import com.google.common.collect.Ordering;
  * 
  * @author Kristian
  */
-public class MinecraftVersion implements Comparable<MinecraftVersion> {
+public class MinecraftVersion implements Comparable<MinecraftVersion>, Serializable {
+	private static final long serialVersionUID = 1L;
+
 	/**
 	 * Regular expression used to parse version strings.
 	 */
 	private static final String VERSION_PATTERN = ".*\\(.*MC.\\s*([a-zA-z0-9\\-\\.]+)\\s*\\)";
+	
+	/**
+	 * Version 1.7.2 - the update that changed the world.
+	 */
+	public static final MinecraftVersion WORLD_UPDATE = new MinecraftVersion("1.7.2");
+	
+	/**
+	 * Version 1.6.1 - the horse update.
+	 */
+	public static final MinecraftVersion HORSE_UPDATE = new MinecraftVersion("1.6.1");
+	
+	/**
+	 * Version 1.5.0 - the redstone update.
+	 */
+	public static final MinecraftVersion REDSTONE_UPDATE = new MinecraftVersion("1.5.0");
+	
+	/**
+	 * Version 1.4.2 - the scary update (Wither Boss).
+	 */
+	public static final MinecraftVersion SCARY_UPDATE = new MinecraftVersion("1.4.2");
 	
 	private final int major;
 	private final int minor;
@@ -218,7 +241,7 @@ public class MinecraftVersion implements Comparable<MinecraftVersion> {
 					compare(getBuild(), o.getBuild()).
 					// No development String means it's a release
 					compare(getDevelopmentStage(), o.getDevelopmentStage(), Ordering.natural().nullsLast()).
-					compare(getSnapshot(), o.getSnapshot()).
+					compare(getSnapshot(), o.getSnapshot(), Ordering.natural().nullsFirst()).
 					result();
 	}
 	

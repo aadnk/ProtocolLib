@@ -19,14 +19,17 @@ package com.comphenix.protocol.reflect;
 
 import java.lang.reflect.Field;
 
+import com.comphenix.protocol.reflect.accessors.Accessors;
+import com.comphenix.protocol.reflect.accessors.FieldAccessor;
+import com.google.common.base.Objects;
+
 /**
  * Represents a field that will revert to its original state when this class is garbaged collected.
  * 
  * @author Kristian
  */
 public class VolatileField {
-
-	private Field field;
+	private FieldAccessor accessor;
 	private Object container;
 	
 	// The current and previous values
@@ -46,7 +49,7 @@ public class VolatileField {
 	 * @param container - the object this field belongs to.
 	 */
 	public VolatileField(Field field, Object container) {
-		this.field = field;
+		this.accessor = Accessors.getFieldAccessor(field);
 		this.container = container;
 	}
 	
@@ -57,9 +60,19 @@ public class VolatileField {
 	 * @param forceAccess - whether or not to override any scope restrictions.
 	 */
 	public VolatileField(Field field, Object container, boolean forceAccess) {
-		this.field = field;
+		this.accessor = Accessors.getFieldAccessor(field, true);
 		this.container = container;
 		this.forceAccess = forceAccess;
+	}
+	
+	/**
+	 * Initializes a volatile field with the given accessor and associated object.
+	 * @param accessor - the field accessor.
+	 * @param container - the object this field belongs to.
+	 */
+	public VolatileField(FieldAccessor accessor, Object container) {
+		this.accessor = accessor;
+		this.container = container;
 	}
 	
 	/**
@@ -67,7 +80,7 @@ public class VolatileField {
 	 * @return The stored field.
 	 */
 	public Field getField() {
-		return field;
+		return accessor.getField();
 	}
 	
 	/**
@@ -122,17 +135,32 @@ public class VolatileField {
 	 * @param newValue - new field value.
 	 */
 	public void setValue(Object newValue) {
-		
 		// Remember to safe the previous value
 		ensureLoaded();
 		
-		try {
-			FieldUtils.writeField(field, container, newValue, forceAccess);
-			current = newValue;
-			currentSet = true;
-			
-		} catch (IllegalAccessException e) {
-			throw new RuntimeException("Unable to read field " + field.getName(), e);
+		writeFieldValue(newValue);
+		current = newValue;
+		currentSet = true;
+	}
+	
+	/**
+	 * Reapply the current changed value.
+	 * <p>
+	 * Also refresh the previously set value.
+	 */
+	public void refreshValue() {
+		Object fieldValue = readFieldValue();
+		
+		if (currentSet) {
+			// If they differ, we need to set them again
+			if (!Objects.equal(current, fieldValue)) {
+				previous = readFieldValue();
+				previousLoaded = true;
+				writeFieldValue(current);
+			}
+		} else if (previousLoaded) {
+			// Update that too
+			previous = fieldValue;
 		}
 	}
 	
@@ -156,9 +184,17 @@ public class VolatileField {
 			} else {
 				// This can be a bad sign
 				System.out.println(String.format("[ProtocolLib] Unable to switch %s to %s. Expected %s but got %s.",
-						field.toGenericString(), previous, current, getValue()));
+						getField().toGenericString(), previous, current, getValue()));
 			}
 		}
+	}
+	
+	/**
+	 * Retrieve a synchronized version of the current field.
+	 * @return A synchronized volatile field.
+	 */
+	public VolatileField toSynchronized() {
+		return new VolatileField(Accessors.getSynchronized(accessor), container);
 	}
 	
 	/**
@@ -171,13 +207,25 @@ public class VolatileField {
 	private void ensureLoaded() {
 		// Load the value if we haven't already
 		if (!previousLoaded) {
-			try {
-				previous = FieldUtils.readField(field, container, forceAccess);
-				previousLoaded = true;
-			} catch (IllegalAccessException e) {
-				throw new RuntimeException("Unable to read field " + field.getName(), e);
-			}
+			previous = readFieldValue();
+			previousLoaded = true;
 		}
+	}
+	
+	/**
+	 * Read the content of the underlying field.
+	 * @return The field value.
+	 */
+	private Object readFieldValue() {
+		return accessor.get(container);
+	}
+	
+	/**
+	 * Write the given value to the underlying field.
+	 * @param newValue - the new value.
+	 */
+	private void writeFieldValue(Object newValue) {
+		accessor.set(container, newValue);
 	}
 		
 	@Override
@@ -187,6 +235,8 @@ public class VolatileField {
 
 	@Override
 	public String toString() {
-		return "VolatileField [field=" + field + ", container=" + container + ", previous=" + previous + ", current=" + current + "]";
+		return "VolatileField [accessor=" + accessor + ", container=" + container + ", previous="
+				+ previous + ", current=" + current + ", previousLoaded=" + previousLoaded
+				+ ", currentSet=" + currentSet + ", forceAccess=" + forceAccess + "]";
 	}
 }
