@@ -6,10 +6,11 @@ import java.net.SocketAddress;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map.Entry;
-import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentMap;
 
+import net.minecraft.util.com.mojang.authlib.GameProfile;
 import net.minecraft.util.io.netty.buffer.ByteBuf;
 import net.minecraft.util.io.netty.channel.Channel;
 import net.minecraft.util.io.netty.channel.ChannelHandler;
@@ -21,9 +22,9 @@ import net.minecraft.util.io.netty.util.concurrent.GenericFutureListener;
 import net.minecraft.util.io.netty.util.internal.TypeParameterMatcher;
 import net.sf.cglib.proxy.Factory;
 
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
+import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.PacketType.Protocol;
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.error.Report;
@@ -33,7 +34,6 @@ import com.comphenix.protocol.events.NetworkMarker;
 import com.comphenix.protocol.events.PacketEvent;
 import com.comphenix.protocol.events.PacketOutputHandler;
 import com.comphenix.protocol.injector.server.SocketInjector;
-import com.comphenix.protocol.injector.server.TemporaryPlayerFactory;
 import com.comphenix.protocol.reflect.FuzzyReflection;
 import com.comphenix.protocol.reflect.VolatileField;
 import com.comphenix.protocol.reflect.accessors.Accessors;
@@ -49,11 +49,13 @@ import com.google.common.collect.MapMaker;
  * Represents a channel injector.
  * @author Kristian
  */
-class ChannelInjector extends ByteToMessageDecoder {
+class ChannelInjector extends ByteToMessageDecoder implements Injector {
 	public static final ReportType REPORT_CANNOT_INTERCEPT_SERVER_PACKET = new ReportType("Unable to intercept a written server packet.");
 	public static final ReportType REPORT_CANNOT_INTERCEPT_CLIENT_PACKET = new ReportType("Unable to intercept a read client packet.");
 	
-	private static final ConcurrentMap<Player, ChannelInjector> cachedInjector = new MapMaker().weakKeys().makeMap();
+	// The login packet
+	private static Class<?> PACKET_LOGIN_CLIENT = null;
+	private static FieldAccessor LOGIN_GAME_PROFILE = null;
 	
 	// Saved accessors
 	private static MethodAccessor DECODE_BUFFER;
@@ -63,8 +65,12 @@ class ChannelInjector extends ByteToMessageDecoder {
 	// For retrieving the protocol
 	private static FieldAccessor PROTOCOL_ACCESSOR;
 	
+	// The factory that created this injector
+	private InjectionFactory factory;
+	
 	// The player, or temporary player
 	private Player player;
+	private Player updated;
 	
 	// The player connection
 	private Object playerConnection;
@@ -103,93 +109,29 @@ class ChannelInjector extends ByteToMessageDecoder {
 	 * @param player - the current player, or temporary player.
 	 * @param networkManager - its network manager.
 	 * @param channel - its channel.
+	 * @param channelListener - a listener.
+	 * @param factory - the factory that created this injector
 	 */
-	private ChannelInjector(Player player, Object networkManager, Channel channel, ChannelListener channelListener) {
+	public ChannelInjector(Player player, Object networkManager, Channel channel, ChannelListener channelListener, InjectionFactory factory) {
 		this.player =  Preconditions.checkNotNull(player, "player cannot be NULL");
 		this.networkManager =  Preconditions.checkNotNull(networkManager, "networkMananger cannot be NULL");
 		this.originalChannel = Preconditions.checkNotNull(channel, "channel cannot be NULL");
 		this.channelListener = Preconditions.checkNotNull(channelListener, "channelListener cannot be NULL");
-	
+		this.factory = Preconditions.checkNotNull(factory, "factory cannot be NULL");
+		
 		// Get the channel field
 		this.channelField = new VolatileField(
 			FuzzyReflection.fromObject(networkManager, true).
 				getFieldByType("channel", Channel.class), 
 			networkManager, true);
 	}
-	
-	/**
-	 * Construct or retrieve a channel injector from an existing Bukkit player.
-	 * @param player - the existing Bukkit player.
-	 * @param channelListener - the listener.
-	 * @return A new injector, or an existing injector associated with this player.
-	 */
-	public static ChannelInjector fromPlayer(Player player, ChannelListener listener) {
-		ChannelInjector injector = cachedInjector.get(player);
 		
-		// Find a temporary injector as well
-		if (injector == null)
-			injector = getTemporaryInjector(player);
-		if (injector != null)
-			return injector;
-		
-		Object networkManager = MinecraftFields.getNetworkManager(player);
-		Channel channel = FuzzyReflection.getFieldValue(networkManager, Channel.class, true);
-		
-		// See if a channel has already been created
-		injector = (ChannelInjector) findChannelHandler(channel, ChannelInjector.class);
-		
-		if (injector != null) {
-			// Update the player instance
-			injector.player = player;
-		} else {
-			injector = new ChannelInjector(player, networkManager, channel, listener);
-		}
-		// Cache injector and return
-		cachedInjector.put(player, injector);
-		return injector;
-	}
-	
-	/**
-	 * Retrieve the associated channel injector.
-	 * @param player - the temporary player, or normal Bukkit player.
-	 * @return The associated injector, or NULL if this is a Bukkit player.
-	 */
-	private static ChannelInjector getTemporaryInjector(Player player) {
-		SocketInjector injector = TemporaryPlayerFactory.getInjectorFromPlayer(player);
-		
-		if (injector != null) {
-			return ((ChannelSocketInjector) injector).getChannelInjector();
-		}
-		return null;
-	}
-	
-	/**
-	 * Construct a new channel injector for the given channel.
-	 * @param channel - the channel.
-	 * @param playerFactory - a temporary player creator.
-	 * @param channelListener - the listener.
-	 * @param loader - the current (plugin) class loader.
-	 * @return The channel injector.
-	 */
-	public static ChannelInjector fromChannel(Channel channel, ChannelListener listener, TemporaryPlayerFactory playerFactory) {
-		Object networkManager = findNetworkManager(channel);	
-		Player temporaryPlayer = playerFactory.createTemporaryPlayer(Bukkit.getServer());
-		ChannelInjector injector = new ChannelInjector(temporaryPlayer, networkManager, channel, listener);
-		
-		// Initialize temporary player
-		TemporaryPlayerFactory.setInjectorInPlayer(temporaryPlayer, new ChannelSocketInjector(injector));
-		return injector;
-	}
-	
-	/**
-	 * Inject the current channel.
-	 * <p>
-	 * Note that only active channels can be injected.
-	 * @return TRUE if we injected the channel, false if we could not inject or it was already injected.
-	 */
+	@Override
 	@SuppressWarnings("unchecked")
 	public boolean inject() {
 		synchronized (networkManager) {
+			if (closed)
+				return false;
 			if (originalChannel instanceof Factory)
 				return false;
 			if (!originalChannel.isActive())
@@ -197,9 +139,6 @@ class ChannelInjector extends ByteToMessageDecoder {
 			
 			// Don't inject the same channel twice
 			if (findChannelHandler(originalChannel, ChannelInjector.class) != null) {
-				// Invalidate cache
-				if (player != null)
-					cachedInjector.remove(player);
 				return false;
 			}
 			
@@ -270,27 +209,7 @@ class ChannelInjector extends ByteToMessageDecoder {
 		}
 		ENCODER_TYPE_MATCHER.set(encoder, TypeParameterMatcher.get(MinecraftReflection.getPacketClass()));
 	}
-	
-	/**
-	 * Close the current injector.
-	 */
-	public void close() {
-		if (!closed) {
-			closed = true;
-			
-			if (injected) {
-				channelField.revertValue();
-				
-				try {
-					originalChannel.pipeline().remove(this);
-					originalChannel.pipeline().remove(protocolEncoder);
-				} catch (NoSuchElementException e) {
-					// Ignore it - the player has logged out
-				}
-			}
-		}
-	}
-	
+		
 	/**
 	 * Encode a packet to a byte buffer, taking over for the standard Minecraft encoder.
 	 * @param ctx - the current context. 
@@ -367,6 +286,9 @@ class ChannelInjector extends ByteToMessageDecoder {
 				Class<?> packetClass = input.getClass();
 				NetworkMarker marker = null;
 				
+				// Special case!
+				handleLogin(packetClass, input);
+				
 				if (channelListener.includeBuffer(packetClass)) {
 					byteBuffer.resetReaderIndex();
 					marker = new NettyNetworkMarker(ConnectionSide.CLIENT_SIDE, getBytes(byteBuffer));
@@ -382,6 +304,27 @@ class ChannelInjector extends ByteToMessageDecoder {
 		} catch (Exception e) {
 			channelListener.getReporter().reportDetailed(this, 
 					Report.newBuilder(REPORT_CANNOT_INTERCEPT_CLIENT_PACKET).callerParam(byteBuffer).error(e).build());
+		}
+	}
+	
+	/**
+	 * Invoked when we may need to handle the login packet.
+	 * @param packetClass - the packet class.
+	 * @param packet - the packet.
+	 */
+	protected void handleLogin(Class<?> packetClass, Object packet) {
+		// Initialize packet class
+		if (PACKET_LOGIN_CLIENT == null) {
+			PACKET_LOGIN_CLIENT = PacketType.Login.Client.START.getPacketClass();
+			LOGIN_GAME_PROFILE = Accessors.getFieldAccessor(PACKET_LOGIN_CLIENT, GameProfile.class, true);
+		}
+			
+		// See if we are dealing with the login packet
+		if (PACKET_LOGIN_CLIENT.equals(packetClass)) {
+			GameProfile profile = (GameProfile) LOGIN_GAME_PROFILE.get(packet);
+			
+			// Save the channel injector
+			factory.cacheInjector(profile.getName(), this);
 		}
 	}
 	
@@ -425,13 +368,8 @@ class ChannelInjector extends ByteToMessageDecoder {
 			}
 		}
 	}
-	
-	/**
-	 * Send a packet to a player's client.
-	 * @param packet - the packet to send.
-	 * @param marker - the network marker.
-	 * @param filtered - whether or not the packet is filtered.
-	 */
+
+	@Override
 	public void sendServerPacket(Object packet, NetworkMarker marker, boolean filtered) {
 		saveMarker(packet, marker);
 		processedPackets.remove(packet);
@@ -462,12 +400,7 @@ class ChannelInjector extends ByteToMessageDecoder {
 		}
 	}
 	
-	/**
-	 * Recieve a packet on the server.
-	 * @param packet - the (NMS) packet to send.
-	 * @param marker - the network marker.
-	 * @param filtered - whether or not the packet is filtered.
-	 */
+	@Override
 	public void recieveClientPacket(Object packet, NetworkMarker marker, boolean filtered) {
 		saveMarker(packet, marker);
 		processedPackets.remove(packet);
@@ -485,10 +418,7 @@ class ChannelInjector extends ByteToMessageDecoder {
 		}
 	}
 	
-	/**
-	 * Retrieve the current protocol state.
-	 * @return The current protocol.
-	 */
+	@Override
 	public Protocol getCurrentProtocol() {
 		if (PROTOCOL_ACCESSOR == null) {
 			PROTOCOL_ACCESSOR = Accessors.getFieldAccessor(
@@ -508,96 +438,57 @@ class ChannelInjector extends ByteToMessageDecoder {
 		return playerConnection;
 	}
 	
-	/**
-	 * Undo the ignore status of a packet.
-	 * @param packet - the packet.
-	 * @return TRUE if the ignore status was undone, FALSE otherwise.
-	 */
+	@Override
 	public boolean unignorePacket(Object packet) {
 		return ignoredPackets.remove(packet);
 	}
 	
-	/**
-	 * Ignore the given packet.
-	 * @param packet - the packet to ignore.
-	 * @return TRUE if it was ignored, FALSE if it already is ignored.
-	 */
+	@Override
 	public boolean ignorePacket(Object packet) {
 		return ignoredPackets.add(packet);
 	}
 	
-	/**
-	 * Retrieve the network marker associated with a given packet.
-	 * @param packet - the packet.
-	 * @return The network marker.
-	 */
+	@Override
 	public NetworkMarker getMarker(Object packet) {
 		return packetMarker.get(packet);
 	}
 	
-	/**
-	 * Associate a given network marker with a specific packet.
-	 * @param packet - the NMS packet.
-	 * @param marker - the associated marker.
-	 */
+	@Override
 	public void saveMarker(Object packet, NetworkMarker marker) {
 		if (marker != null) {
 			packetMarker.put(packet, marker);
 		}
 	}
 	
-	/**
-	 * Associate a given network marker with a packet event.
-	 * @param marker - the marker.
-	 * @param event - the packet event
-	 */
+	@Override
 	public void saveEvent(NetworkMarker marker, PacketEvent event) {
 		if (marker != null) {
 			markerEvent.put(marker, event);
 		}
 	}
-		
-	/**
-	 * Find the network manager in a channel's pipeline.
-	 * @param channel - the channel.
-	 * @return The network manager.
-	 */
-	private static Object findNetworkManager(Channel channel) {
-		// Find the network manager
-		Object networkManager = findChannelHandler(channel, MinecraftReflection.getNetworkManagerClass());
-		
-		if (networkManager != null)
-			return networkManager;
-		throw new IllegalArgumentException("Unable to find NetworkManager in " + channel);
-	}
-	
-	/**
-	 * Find the first channel handler that is assignable to a given type.
-	 * @param channel - the channel.
-	 * @param clazz - the type.
-	 * @return The first handler, or NULL.
-	 */
-	private static ChannelHandler findChannelHandler(Channel channel, Class<?> clazz) {
-		for (Entry<String, ChannelHandler> entry : channel.pipeline()) {
-			if (clazz.isAssignableFrom(entry.getValue().getClass())) {
-				return entry.getValue();
-			}
-		}
-		return null;
-	}
-	
-	/**
-	 * Retrieve the current player or temporary player associated with the injector.
-	 * @return The current player.
-	 */
+			
+	@Override
 	public Player getPlayer() {
 		return player;
 	}
 	
 	/**
-	 * Determine if the channel has already been injected.
-	 * @return TRUE if it has, FALSE otherwise.
+	 * Set the player instance.
+	 * @param player - current instance.
 	 */
+	public void setPlayer(Player player) {
+		this.player = player;
+	}
+	
+	/**
+	 * Set the updated player instance.
+	 * @param updated - updated instance.
+	 */
+	public void setUpdatedPlayer(Player updated) {
+		this.updated = updated;
+	}
+	
+	@Override
 	public boolean isInjected() {
 		return injected;
 	}
@@ -606,8 +497,63 @@ class ChannelInjector extends ByteToMessageDecoder {
 	 * Determine if this channel has been closed and cleaned up.
 	 * @return TRUE if it has, FALSE otherwise.
 	 */
+	@Override
 	public boolean isClosed() {
 		return closed;
+	}
+	
+	@Override
+	public void close() {
+		if (!closed) {
+			closed = true;
+			
+			if (injected) {
+				channelField.revertValue();
+				
+				// Calling remove() in the main thread will block the main thread, which may lead 
+				// to a deadlock:
+				//    http://pastebin.com/L3SBVKzp
+				// 
+				// ProtocolLib executes this close() method through a PlayerQuitEvent in the main thread,
+				// which has implicitly aquired a lock on SimplePluginManager (see SimplePluginManager.callEvent(Event)). 
+				// Unfortunately, the remove() method will schedule the removal on one of the Netty worker threads if 
+				// it's called from a different thread, blocking until the removal has been confirmed.
+				// 
+				// This is bad enough (Rule #1: Don't block the main thread), but the real trouble starts if the same 
+				// worker thread happens to be handling a server ping connection when this removal task is scheduled. 
+				// In that case, it may attempt to invoke an asynchronous ServerPingEvent (see PacketStatusListener) 
+				// using SimplePluginManager.callEvent(). But, since this has already been locked by the main thread, 
+				// we end up with a deadlock. The main thread is waiting for the worker thread to process the task, and 
+			    // the worker thread is waiting for the main thread to finish executing PlayerQuitEvent.
+				//
+				// TLDR: Concurrenty is hard.
+				originalChannel.eventLoop().submit(new Callable<Object>() {
+					@Override
+					public Object call() throws Exception {
+						originalChannel.pipeline().remove(ChannelInjector.this);
+						originalChannel.pipeline().remove(protocolEncoder);
+						return null;
+					}
+				});
+				// Clear cache
+				factory.invalidate(player);
+			}
+		}
+	}
+	
+	/**
+	 * Find the first channel handler that is assignable to a given type.
+	 * @param channel - the channel.
+	 * @param clazz - the type.
+	 * @return The first handler, or NULL.
+	 */
+	public static ChannelHandler findChannelHandler(Channel channel, Class<?> clazz) {
+		for (Entry<String, ChannelHandler> entry : channel.pipeline()) {
+			if (clazz.isAssignableFrom(entry.getValue().getClass())) {
+				return entry.getValue();
+			}
+		}
+		return null;
 	}
 	
 	/**
@@ -648,7 +594,7 @@ class ChannelInjector extends ByteToMessageDecoder {
 
 		@Override
 		public Player getUpdatedPlayer() {
-			return injector.player;
+			return injector.updated;
 		}
 
 		@Override

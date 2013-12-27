@@ -42,6 +42,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerLoginEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.server.PluginDisableEvent;
 import org.bukkit.plugin.Plugin;
@@ -68,6 +69,7 @@ import com.comphenix.protocol.injector.player.PlayerInjectionHandler.ConflictStr
 import com.comphenix.protocol.injector.spigot.SpigotPacketInjector;
 import com.comphenix.protocol.reflect.FieldAccessException;
 import com.comphenix.protocol.reflect.FuzzyReflection;
+import com.comphenix.protocol.utility.EnhancerFactory;
 import com.comphenix.protocol.utility.MinecraftReflection;
 import com.comphenix.protocol.utility.MinecraftVersion;
 import com.google.common.base.Objects;
@@ -232,7 +234,7 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 		this.loginPackets = new LoginPackets(minecraftVersion);
 		
 		// The write packet interceptor
-		this.interceptWritePacket = new InterceptWritePacket(classLoader, reporter);
+		this.interceptWritePacket = new InterceptWritePacket(reporter);
 		
 		// Use the correct injection type
 		if (MinecraftReflection.isUsingNetty()) {
@@ -241,7 +243,7 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 			this.packetInjector = nettyInjector.getPacketInjector();
 			
 		} else if (builder.isNettyEnabled()) {
-			this.spigotInjector = new SpigotPacketInjector(classLoader, reporter, this, server);
+			this.spigotInjector = new SpigotPacketInjector(reporter, this, server);
 			this.playerInjection = spigotInjector.getPlayerHandler();
 			this.packetInjector = spigotInjector.getPacketInjector();
 			
@@ -249,7 +251,6 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 			spigotInjector.setProxyPacketInjector(PacketInjectorBuilder.newBuilder().
 					invoker(this).
 					reporter(reporter).
-					classLoader(classLoader).
 					playerInjection(playerInjection).
 					buildInjector()
 			);
@@ -260,7 +261,6 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 					invoker(this).
 					server(server).
 					reporter(reporter).
-					classLoader(classLoader).
 					packetListeners(packetListeners).
 					injectionFilter(isInjectionNecessary).
 					version(builder.getMinecraftVersion()).
@@ -269,7 +269,6 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 			this.packetInjector = PacketInjectorBuilder.newBuilder().
 					invoker(this).
 					reporter(reporter).
-					classLoader(classLoader).
 					playerInjection(playerInjection).
 					buildInjector();
 		}
@@ -923,10 +922,13 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 		try {
 			manager.registerEvents(new Listener() {
 				@EventHandler(priority = EventPriority.LOWEST)
+			    public void onPlayerLogin(PlayerLoginEvent event) {
+					PacketFilterManager.this.onPlayerLogin(event);
+				}
+				@EventHandler(priority = EventPriority.LOWEST)
 			    public void onPrePlayerJoin(PlayerJoinEvent event) {
 					PacketFilterManager.this.onPrePlayerJoin(event);
 				}
-				
 				@EventHandler(priority = EventPriority.MONITOR)
 			    public void onPlayerJoin(PlayerJoinEvent event) {
 					PacketFilterManager.this.onPlayerJoin(event);
@@ -947,6 +949,10 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 			registerOld(manager, plugin);
 		}
 	}
+	
+    private void onPlayerLogin(PlayerLoginEvent event) {
+		playerInjection.updatePlayer(event.getPlayer());
+    }
 	
     private void onPrePlayerJoin(PlayerJoinEvent event) {
 		playerInjection.updatePlayer(event.getPlayer());
@@ -1012,7 +1018,7 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 	@Override
 	@Deprecated
 	public int getPacketID(Object packet) {
-		return getPacketType(packet).getLegacyId();
+		return PacketRegistry.getPacketID(packet.getClass());
 	}
 
 	@Override
@@ -1077,9 +1083,9 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 			Method registerEvent = FuzzyReflection.fromObject(manager).getMethodByParameters("registerEvent", 
 					eventTypes, Listener.class, eventPriority, Plugin.class);
 			
-			Enhancer playerLow = new Enhancer();
-			Enhancer playerEx = new Enhancer();
-			Enhancer serverEx = new Enhancer();
+			Enhancer playerLow = EnhancerFactory.getInstance().createEnhancer();
+			Enhancer playerEx = EnhancerFactory.getInstance().createEnhancer();
+			Enhancer serverEx = EnhancerFactory.getInstance().createEnhancer();
 			
 			playerLow.setSuperclass(playerListener);
 			playerLow.setClassLoader(classLoader);

@@ -125,9 +125,6 @@ public abstract class PlayerInjector implements SocketInjector {
 	
 	// Handle errors
 	protected ErrorReporter reporter;
-
-	// Used to construct proxy objects
-	protected ClassLoader classLoader;
 	
 	// Previous markers
 	protected Map<Object, NetworkMarker> queuedMarkers = new MapMaker().weakKeys().makeMap();
@@ -140,8 +137,7 @@ public abstract class PlayerInjector implements SocketInjector {
 	boolean updateOnLogin;
 	volatile Player updatedPlayer;
 	
-	public PlayerInjector(ClassLoader classLoader, ErrorReporter reporter, Player player, ListenerInvoker invoker) throws IllegalAccessException {
-		this.classLoader = classLoader;
+	public PlayerInjector(ErrorReporter reporter, Player player, ListenerInvoker invoker) throws IllegalAccessException {
 		this.reporter = reporter;
 		this.player = player;
 		this.invoker = invoker;

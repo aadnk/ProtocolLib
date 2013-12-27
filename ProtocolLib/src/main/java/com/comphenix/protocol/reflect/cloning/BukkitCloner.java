@@ -17,11 +17,15 @@
 
 package com.comphenix.protocol.reflect.cloning;
 
+import java.util.List;
+
 import com.comphenix.protocol.reflect.EquivalentConverter;
 import com.comphenix.protocol.utility.MinecraftReflection;
 import com.comphenix.protocol.wrappers.BukkitConverters;
 import com.comphenix.protocol.wrappers.ChunkPosition;
 import com.comphenix.protocol.wrappers.WrappedDataWatcher;
+import com.comphenix.protocol.wrappers.WrappedServerPing;
+import com.google.common.collect.Lists;
 
 /**
  * Represents an object that can clone a specific list of Bukkit- and Minecraft-related objects.
@@ -30,9 +34,21 @@ import com.comphenix.protocol.wrappers.WrappedDataWatcher;
  */
 public class BukkitCloner implements Cloner {
 	// List of classes we support
-	private Class<?>[] clonableClasses = { MinecraftReflection.getItemStackClass(), MinecraftReflection.getChunkPositionClass(), 
-										   MinecraftReflection.getDataWatcherClass() };
+	private Class<?>[] clonableClasses;
 	
+	public BukkitCloner() {
+		List<Class<?>> classes = Lists.newArrayList();
+		
+		classes.add(MinecraftReflection.getItemStackClass());
+		classes.add(MinecraftReflection.getChunkPositionClass());
+		classes.add(MinecraftReflection.getDataWatcherClass());
+
+		if (MinecraftReflection.isUsingNetty()) {
+			classes.add(MinecraftReflection.getServerPingClass());
+		}
+		this.clonableClasses = classes.toArray(new Class<?>[0]);
+	}
+			
 	private int findMatchingClass(Class<?> type) {
 		// See if is a subclass of any of our supported superclasses
 		for (int i = 0; i < clonableClasses.length; i++) {
@@ -66,6 +82,9 @@ public class BukkitCloner implements Cloner {
 			case 2:
 				EquivalentConverter<WrappedDataWatcher> dataConverter = BukkitConverters.getDataWatcherConverter();
 				return dataConverter.getGeneric(clonableClasses[2], dataConverter.getSpecific(source).deepClone());
+			case 3:
+				EquivalentConverter<WrappedServerPing> serverConverter = BukkitConverters.getWrappedServerPingConverter();
+				return serverConverter.getGeneric(clonableClasses[3], serverConverter.getSpecific(source).deepClone());
 			default:
 				throw new IllegalArgumentException("Cannot clone objects of type " + source.getClass());
 		}

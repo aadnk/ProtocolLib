@@ -46,7 +46,7 @@ public class WrappedServerPing extends AbstractWrapper {
 	
 	// For converting to the underlying array
 	private static EquivalentConverter<Iterable<? extends WrappedGameProfile>> PROFILE_CONVERT = 
-		BukkitConverters.getArrayConverter(GameProfile[].class, BukkitConverters.getWrappedGameProfileConverter());
+		BukkitConverters.getArrayConverter(GameProfile.class, BukkitConverters.getWrappedGameProfileConverter());
 	
 	// Server ping player sample fields
 	private static Class<?> PLAYERS_CLASS = MinecraftReflection.getServerPingPlayerSampleClass();
@@ -185,7 +185,7 @@ public class WrappedServerPing extends AbstractWrapper {
 	 * @param profile - every logged in player.
 	 */
 	public void setPlayers(Iterable<? extends WrappedGameProfile> profile) {
-		PLAYERS_PROFILES.set(handle, PROFILE_CONVERT.getGeneric(GameProfile[].class, profile));
+		PLAYERS_PROFILES.set(players, PROFILE_CONVERT.getGeneric(GameProfile[].class, profile));
 	}
 	
 	/**
@@ -232,6 +232,24 @@ public class WrappedServerPing extends AbstractWrapper {
 	 */
 	public void setVersionProtocol(int protocol) {
 		VERSION_PROTOCOL.set(version, protocol);
+	}
+	
+	/**
+	 * Retrieve a deep copy of the current wrapper object.
+	 * @return The current object.
+	 */
+	public WrappedServerPing deepClone() {
+		WrappedServerPing copy = new WrappedServerPing();
+		WrappedChatComponent motd = getMotD();
+		
+		copy.setPlayers(getPlayers());
+		copy.setFavicon(getFavicon());
+		copy.setMotD(motd != null ? motd.deepClone() : null);
+		copy.setPlayersMaximum(getPlayersMaximum());
+		copy.setPlayersOnline(getPlayersOnline());
+		copy.setVersionName(getVersionName());
+		copy.setVersionProtocol(getVersionProtocol());
+		return copy;
 	}
 	
 	/**

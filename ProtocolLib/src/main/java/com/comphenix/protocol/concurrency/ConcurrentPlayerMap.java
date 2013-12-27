@@ -8,12 +8,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 
+import com.comphenix.protocol.utility.SafeCacheBuilder;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import com.google.common.base.Function;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.RemovalListener;
 import com.google.common.cache.RemovalNotification;
@@ -62,8 +61,8 @@ public class ConcurrentPlayerMap<TValue> extends AbstractMap<Player, TValue> imp
 	/**
 	 * A cache of the associated keys for each player.
 	 */
-	protected Cache<Object, Player> keyLookup = createKeyCache();
 	
+	protected ConcurrentMap<Object, Player> keyLookup = createKeyCache();
 	/**
 	 * The method used to retrieve a unique key for a player.
 	 */
@@ -115,9 +114,9 @@ public class ConcurrentPlayerMap<TValue> extends AbstractMap<Player, TValue> imp
 	 * Construct a cache of keys and the associated player.
 	 * @return The key map.
 	 */
-	protected Cache<Object, Player> createKeyCache() {
-		return CacheBuilder.newBuilder().
-			weakValues(). 
+	protected ConcurrentMap<Object, Player> createKeyCache() {
+		return SafeCacheBuilder.newBuilder().
+			weakValues().
 			removalListener(
 			  new RemovalListener<Object, Player>() {
 				@Override
@@ -154,7 +153,7 @@ public class ConcurrentPlayerMap<TValue> extends AbstractMap<Player, TValue> imp
 		
 		if (newPlayer != null) {
 			// Update the reference
-			keyLookup.asMap().put(key, newPlayer);
+			keyLookup.put(key, newPlayer);
 		} else {
 			valueLookup.remove(key);
 		}
@@ -183,8 +182,6 @@ public class ConcurrentPlayerMap<TValue> extends AbstractMap<Player, TValue> imp
 	protected Player lookupPlayer(Object key) {
 		try {
 			return keyLookup.get(key);
-		} catch (ExecutionException e) {
-			return null;
 		} catch (UncheckedExecutionException e) {
 			return null;
 		}
@@ -198,7 +195,7 @@ public class ConcurrentPlayerMap<TValue> extends AbstractMap<Player, TValue> imp
 	protected Object cachePlayerKey(Player player) {
 		Object key = keyMethod.apply(player);
 		
-		keyLookup.asMap().put(key, player);
+		keyLookup.put(key, player);
 		return key;
 	}
 	
@@ -226,10 +223,13 @@ public class ConcurrentPlayerMap<TValue> extends AbstractMap<Player, TValue> imp
 	public TValue remove(Object key) {
 		if (key instanceof Player) {
 			Object playerKey = keyMethod.apply((Player) key);
-			TValue value = valueLookup.remove(playerKey);
 			
-			keyLookup.asMap().remove(playerKey);
-			return value;
+			if (playerKey != null) {
+				TValue value = valueLookup.remove(playerKey);
+			
+				keyLookup.remove(playerKey);
+				return value;
+			}
 		}
 		return null;
 	}
@@ -239,8 +239,8 @@ public class ConcurrentPlayerMap<TValue> extends AbstractMap<Player, TValue> imp
 		if (key instanceof Player) {
 			Object playerKey = keyMethod.apply((Player) key);
 			
-			if (valueLookup.remove(playerKey, value)) {
-				keyLookup.asMap().remove(playerKey);
+			if (playerKey != null && valueLookup.remove(playerKey, value)) {
+				keyLookup.remove(playerKey);
 				return true;
 			}
 		}
@@ -249,15 +249,19 @@ public class ConcurrentPlayerMap<TValue> extends AbstractMap<Player, TValue> imp
 	
 	@Override
 	public TValue get(Object key) {
-		if (key instanceof Player) 
-			return valueLookup.get(keyMethod.apply((Player) key));
+		if (key instanceof Player) {
+			Object playerKey = keyMethod.apply((Player) key);
+			return playerKey != null ? valueLookup.get(playerKey) : null;
+		}
 		return null;
 	}
 	
 	@Override
 	public boolean containsKey(Object key) {
-		if (key instanceof Player) 
-			return valueLookup.containsKey(keyMethod.apply((Player) key));
+		if (key instanceof Player) {
+			Object playerKey = keyMethod.apply((Player) key);
+			return playerKey != null && valueLookup.containsKey(playerKey);
+		}
 		return false;
 	}
 		
@@ -277,7 +281,7 @@ public class ConcurrentPlayerMap<TValue> extends AbstractMap<Player, TValue> imp
 			@Override
 			public void clear() {
 				valueLookup.clear();
-				keyLookup.invalidateAll();
+				keyLookup.clear();
 			}
 		};
 	}
@@ -300,7 +304,7 @@ public class ConcurrentPlayerMap<TValue> extends AbstractMap<Player, TValue> imp
 					if (player == null) {
 						// Remove entries that cannot be found
 						source.remove();
-						keyLookup.asMap().remove(entry.getKey());
+						keyLookup.remove(entry.getKey());
 					} else {
 						return new SimpleEntry<Player, TValue>(player, entry.getValue());
 					}

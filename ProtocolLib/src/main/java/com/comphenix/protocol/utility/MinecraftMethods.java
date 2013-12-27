@@ -161,7 +161,7 @@ public class MinecraftMethods {
 		// Initialize the methods
 		if (packetReadByteBuf == null || packetWriteByteBuf == null) {
 			// This object will allow us to detect which methods were called
-			Enhancer enhancer = new Enhancer();
+			Enhancer enhancer = EnhancerFactory.getInstance().createEnhancer();
 			enhancer.setSuperclass(MinecraftReflection.getPacketDataSerializerClass());
 			enhancer.setCallback(new MethodInterceptor() {
 				@Override

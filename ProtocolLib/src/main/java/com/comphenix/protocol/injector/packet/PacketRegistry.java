@@ -28,10 +28,10 @@ import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.error.Report;
 import com.comphenix.protocol.error.ReportType;
 import com.comphenix.protocol.injector.netty.NettyProtocolRegistry;
-import com.comphenix.protocol.injector.packet.LegacyPacketRegistry.CannotCorrectTroveMapException;
 import com.comphenix.protocol.injector.packet.LegacyPacketRegistry.InsufficientPacketsException;
 import com.comphenix.protocol.reflect.FieldAccessException;
 import com.comphenix.protocol.utility.MinecraftReflection;
+import com.comphenix.protocol.wrappers.TroveWrapper.CannotFindTroveNoEntryValue;
 import com.google.common.base.Function;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -119,7 +119,7 @@ public class PacketRegistry {
 						PacketRegistry.class, Report.newBuilder(REPORT_INSUFFICIENT_SERVER_PACKETS).messageParam(e.getPacketCount())
 					);
 				}
-			} catch (CannotCorrectTroveMapException e) {
+			} catch (CannotFindTroveNoEntryValue e) {
 				ProtocolLibrary.getErrorReporter().reportWarning(PacketRegistry.class, 
 					Report.newBuilder(REPORT_CANNOT_CORRECT_TROVE_MAP).error(e.getCause()));
 			}
@@ -393,14 +393,28 @@ public class PacketRegistry {
 	/**
 	 * Retrieve the packet type of a given packet.
 	 * @param packet - the class of the packet.
-	 * @return The packet type.
-	 * @throws IllegalArgumentException If this is not a valid packet.
+	 * @return The packet type, or NULL if not found.
 	 */
 	public static PacketType getPacketType(Class<?> packet) {
+		return getPacketType(packet, null);
+	}
+	
+	/**
+	 * Retrieve the packet type of a given packet.
+	 * @param packet - the class of the packet.
+	 * @param sender - the sender of the packet, or NULL.
+	 * @return The packet type, or NULL if not found.
+	 */
+	public static PacketType getPacketType(Class<?> packet, Sender sender) {
 		initialize();
 		
-		if (NETTY != null)
+		if (NETTY != null) {
 			return NETTY.getPacketClassLookup().get(packet);
-		return PacketType.findLegacy(LEGACY.getPacketID(packet));
+		} else {
+			final int id = LEGACY.getPacketID(packet);
+			
+			return PacketType.hasLegacy(id) ? 
+					PacketType.fromLegacy(id, sender) : null;
+		}
 	}
 }

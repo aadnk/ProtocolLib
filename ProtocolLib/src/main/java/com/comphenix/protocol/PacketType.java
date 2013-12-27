@@ -589,6 +589,16 @@ public class PacketType implements Serializable {
 	}
 	
 	/**
+	 * Determine if the given legacy packet exists.
+	 * @param packetId - the legacy packet ID.
+	 * @param preference - the sender preference.
+	 * @return TRUE if it does, FALSE otherwise.
+	 */
+	public static boolean hasLegacy(int packetId) {
+		return getLookup().getFromLegacy(packetId) != null;
+	}
+	
+	/**
 	 * Retrieve a packet type from a protocol, sender and packet ID.
 	 * <p>
 	 * It is usually better to access the packet types statically, like so:
@@ -611,6 +621,40 @@ public class PacketType implements Serializable {
 	}
 	
 	/**
+	 * Determine if the given packet exists.
+	 * @param protocol - the protocol.
+	 * @param sender - the sender.
+	 * @param packetId - the packet ID.
+	 * @return TRUE if it exists, FALSE otherwise.
+	 */
+	public static boolean hasCurrent(Protocol protocol, Sender sender, int packetId) {
+		return getLookup().getFromCurrent(protocol, sender, packetId) != null;
+	}
+	
+	/**
+	 * Retrieve a packet type from a legacy ID.
+	 * <p>
+	 * If no associated packet type could be found, a new will be registered under LEGACY.
+	 * @param id - the legacy ID.
+	 * @param sender - the sender of the packet, or NULL if unknown.
+	 * @return The packet type.
+	 * @throws IllegalArgumentException If the sender is NULL and the packet doesn't exist.
+	 */
+	public static PacketType fromLegacy(int id, Sender sender) {
+		PacketType type = getLookup().getFromLegacy(id);
+		
+		if (type == null) {
+			if (sender == null)
+				throw new IllegalArgumentException("Cannot find legacy packet " + id);
+			type = newLegacy(sender, id);
+			
+			// As below
+			scheduleRegister(type, "Dynamic-" + UUID.randomUUID().toString());
+		}
+		return type;
+	}
+	
+	/**
 	 * Retrieve a packet type from a protocol, sender and packet ID.
 	 * <p>
 	 * The packet will automatically be registered if its missing.
@@ -630,6 +674,28 @@ public class PacketType implements Serializable {
 			scheduleRegister(type, "Dynamic-" + UUID.randomUUID().toString());
 		}
 		return type;
+	}
+	
+	/**
+	 * Lookup a packet type from a packet class.
+	 * @param packetClass - the packet class.
+	 * @return The corresponding packet type, or NULL if not found.
+	 */
+	public static PacketType fromClass(Class<?> packetClass) {
+		PacketType type = PacketRegistry.getPacketType(packetClass);
+		
+		if (type != null)
+			return type;
+		throw new IllegalArgumentException("Class " + packetClass + " is not a registered packet.");
+	}
+	
+	/**
+	 * Determine if a given class represents a packet class.
+	 * @param packetClass - the class to lookup.
+	 * @return TRUE if this is a packet class, FALSE otherwise.
+	 */
+	public static boolean hasClass(Class<?> packetClass) {
+		return PacketRegistry.getPacketType(packetClass) != null;
 	}
 	
 	/**
@@ -822,7 +888,10 @@ public class PacketType implements Serializable {
 	@Override
 	public String toString() {
 		Class<?> clazz = getPacketClass();;
-		return (clazz != null ? clazz.getSimpleName() : "UNREGISTERED") + 
-			" [" + protocol + ", " + sender + ", " + currentId + ", legacy: " + legacyId + "]";
+	
+		if (clazz == null)
+			return "UNREGISTERED [" + protocol + ", " + sender + ", " + currentId + ", legacy: " + legacyId + "]";
+		else
+			return clazz.getSimpleName() + "[" + currentId + ", legacy: " + legacyId + "]";
 	}
 }
