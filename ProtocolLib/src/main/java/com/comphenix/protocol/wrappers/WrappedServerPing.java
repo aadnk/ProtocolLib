@@ -138,8 +138,16 @@ public class WrappedServerPing extends AbstractWrapper {
 	 * @param image - the new compressed image.
 	 */
 	public void setFavicon(CompressedImage image) {
-		FAVICON.set(handle, image.toEncodedText());
+		setFavicon(image.toEncodedText());
 	}
+
+    /**
+     * Set the Base64 encoded PNG file that is being displayed.
+     * @param encodedImage - The new compressed image, encoded in valid Base64 format.
+     */
+    public void setFavicon(String encodedImage) {
+        FAVICON.set(handle, encodedImage);
+    }
 	
 	/**
 	 * Retrieve the displayed number of online players.
