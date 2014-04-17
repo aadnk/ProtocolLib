@@ -171,6 +171,11 @@ class CommandPacket extends CommandBase {
 
 			// Commands with different parameters
 			if (subCommand == SubCommand.PAGE) {
+				if (args.length <= 1) {
+					sendMessageSilently(sender, ChatColor.RED + "Must specify a page index.");
+					return true;
+				}
+				
 				int page = Integer.parseInt(args[1]);
 				
 				if (page > 0)
@@ -183,8 +188,12 @@ class CommandPacket extends CommandBase {
 			Set<PacketType> types = typeParser.parseTypes(arguments, PacketTypeParser.DEFAULT_MAX_RANGE);
 			Boolean detailed = parseBoolean(arguments, "detailed");
 			
+			// Notify user
+			if (typeParser.getLastProtocol() == null) {
+				sender.sendMessage(ChatColor.YELLOW + "Warning: Missing protocol (PLAY, etc) - assuming legacy IDs.");
+			}
 			if (arguments.size() > 0) {
-				throw new IllegalArgumentException("Insufficient arguments.");
+				throw new IllegalArgumentException("Cannot parse " + arguments);
 			}
 		
 			// The last element is optional
@@ -330,8 +339,9 @@ class CommandPacket extends CommandBase {
 						Class<?> clazz = packet.getClass();
 						
 						// Get the first Minecraft super class
-						while ((!MinecraftReflection.isMinecraftClass(clazz) || 
-								 Factory.class.isAssignableFrom(clazz)) && clazz != Object.class) {
+						while (clazz != null && clazz != Object.class &&
+								(!MinecraftReflection.isMinecraftClass(clazz) || 
+								 Factory.class.isAssignableFrom(clazz))) {
 							clazz = clazz.getSuperclass();
 						}
 						
@@ -340,7 +350,7 @@ class CommandPacket extends CommandBase {
 								@Override
 								public boolean print(StringBuilder output, Object value) {
 									if (value != null) {
-										EquivalentConverter<Object> converter = BukkitConverters.getConvertersForGeneric().get(value.getClass());
+										EquivalentConverter<Object> converter = findConverter(value.getClass());
 										
 										if (converter != null) {
 											output.append(converter.getSpecific(value));
@@ -358,6 +368,20 @@ class CommandPacket extends CommandBase {
 				} else {
 					logger.info(shortDescription + ".");
 				}
+			}
+			
+			private EquivalentConverter<Object> findConverter(Class<?> clazz) {
+				Map<Class<?>, EquivalentConverter<Object>> converters = BukkitConverters.getConvertersForGeneric();
+				
+				while (clazz != null) {
+					EquivalentConverter<Object> result = converters.get(clazz);
+					
+					if (result != null)
+						return result;
+					else
+						clazz = clazz.getSuperclass();
+				}
+				return null;
 			}
 			
 			@Override

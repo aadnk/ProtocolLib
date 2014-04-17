@@ -56,6 +56,7 @@ import com.comphenix.protocol.reflect.ClassAnalyser;
 import com.comphenix.protocol.reflect.FuzzyReflection;
 import com.comphenix.protocol.reflect.ClassAnalyser.AsmMethod;
 import com.comphenix.protocol.reflect.accessors.Accessors;
+import com.comphenix.protocol.reflect.accessors.MethodAccessor;
 import com.comphenix.protocol.reflect.compiler.EmptyClassVisitor;
 import com.comphenix.protocol.reflect.compiler.EmptyMethodVisitor;
 import com.comphenix.protocol.reflect.fuzzy.AbstractFuzzyMatcher;
@@ -69,6 +70,9 @@ import com.comphenix.protocol.wrappers.WrappedDataWatcher;
 import com.comphenix.protocol.wrappers.nbt.NbtFactory;
 import com.comphenix.protocol.wrappers.nbt.NbtType;
 import com.google.common.base.Joiner;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
 
 /**
  * Methods and constants specifically used in conjuction with reflecting Minecraft object.
@@ -78,6 +82,7 @@ import com.google.common.base.Joiner;
 public class MinecraftReflection {
 	public static final ReportType REPORT_CANNOT_FIND_MCPC_REMAPPER = new ReportType("Cannot find MCPC remapper.");
 	public static final ReportType REPORT_CANNOT_LOAD_CPC_REMAPPER = new ReportType("Unable to load MCPC remapper.");
+	public static final ReportType REPORT_NON_CRAFTBUKKIT_LIBRARY_PACKAGE = new ReportType("Cannot find standard Minecraft library location. Assuming MCPC.");
 	
 	/**
 	 * Regular expression that matches a Minecraft object.
@@ -101,7 +106,12 @@ public class MinecraftReflection {
 	 * The package name of all the classes that belongs to the native code in Minecraft.
 	 */
 	private static String MINECRAFT_PREFIX_PACKAGE = "net.minecraft.server";
-
+	
+	/**
+	 * The package with all the library classes.
+	 */
+	private static String MINECRAFT_LIBRARY_PACKAGE = "net.minecraft.util";
+	
 	/**
 	 * Represents a regular expression that will match the version string in a package:
 	 *    org.bukkit.craftbukkit.v1_6_R2      ->      v1_6_R2
@@ -114,6 +124,7 @@ public class MinecraftReflection {
 	// Package private for the purpose of unit testing
 	static CachedPackage minecraftPackage;
 	static CachedPackage craftbukkitPackage;
+	static CachedPackage libraryPackage;
 	
 	// org.bukkit.craftbukkit
 	private static Constructor<?> craftNMSConstructor;
@@ -133,6 +144,14 @@ public class MinecraftReflection {
 	
 	// net.minecraft.server
 	private static Class<?> itemStackArrayClass;
+	
+	// Cache of getBukkitEntity
+	private static Cache<Class<?>, MethodAccessor> getBukkitEntityCache = CacheBuilder.newBuilder().build(
+	  new CacheLoader<Class<?>, MethodAccessor>() {
+		public MethodAccessor load(java.lang.Class<?> paramK) throws Exception {
+			return Accessors.getMethodAccessor(paramK, "getBukkitEntity");
+		};
+	});
 	
 	// The current class source
 	private static ClassSource classSource;
@@ -199,6 +218,9 @@ public class MinecraftReflection {
 				// Libigot patch
 				handleLibigot();
 				
+				// Minecraft library package
+				handleLibraryPackage();
+				
 				// Next, do the same for CraftEntity.getHandle() in order to get the correct Minecraft package
 				Class<?> craftEntity = getCraftEntityClass();
 				Method getHandle = craftEntity.getMethod("getHandle");
@@ -244,7 +266,30 @@ public class MinecraftReflection {
 			throw new IllegalStateException("Could not find Bukkit. Is it running?");
 		}
 	}
+
+	/**
+	 * Retrieve the Minecraft library package string.
+	 * @return The library package.
+	 */
+	private static String getMinecraftLibraryPackage() {
+		getMinecraftPackage();
+		return MINECRAFT_LIBRARY_PACKAGE;
+	}
 	
+	private static void handleLibraryPackage() {
+		try {
+			MINECRAFT_LIBRARY_PACKAGE = "net.minecraft.util";
+			// Try loading Google GSON
+			getClassSource().loadClass(CachedPackage.combine(MINECRAFT_LIBRARY_PACKAGE, "com.google.gson.Gson"));
+			
+		} catch (Exception e) {
+			// Assume it's MCPC
+			MINECRAFT_LIBRARY_PACKAGE = "";
+			ProtocolLibrary.getErrorReporter().reportWarning(MinecraftReflection.class, 
+				Report.newBuilder(REPORT_NON_CRAFTBUKKIT_LIBRARY_PACKAGE));
+		}
+	}
+
 	/**
 	 * Retrieve the package version of the underlying CraftBukkit server.
 	 * @return The package version, or NULL if not applicable (before 1.4.6).
@@ -334,9 +379,9 @@ public class MinecraftReflection {
 		
 		// We will have to do this dynamically, unfortunately
 		try {
-			return nmsObject.getClass().getMethod("getBukkitEntity").invoke(nmsObject);
+			return getBukkitEntityCache.apply(nmsObject.getClass()).invoke(nmsObject);
 		} catch (Exception e) {
-			throw new RuntimeException("Cannot get Bukkit entity from " + nmsObject, e);
+			throw new IllegalArgumentException("Cannot get Bukkit entity from " + nmsObject, e);
 		}
 	}
 	
@@ -671,6 +716,33 @@ public class MinecraftReflection {
 	}
 
 	/**
+	 * Retrieve the NMS chat component text class.
+	 * @return The chat component class.
+	 */
+	public static Class<?> getChatComponentTextClass() {
+		try {
+			return getMinecraftClass("ChatComponentText");
+		} catch (RuntimeException e) {
+			try {
+				Method getScoreboardDisplayName = FuzzyReflection.fromClass(getEntityClass()).
+					getMethodByParameters("getScoreboardDisplayName", getIChatBaseComponentClass(), new Class<?>[0]);
+				Class<?> baseClass = getIChatBaseComponentClass();
+				
+				for (AsmMethod method : ClassAnalyser.getDefault().getMethodCalls(getScoreboardDisplayName)) {
+					Class<?> owner = method.getOwnerClass();
+					
+					if (isMinecraftClass(owner) && baseClass.isAssignableFrom(owner)) {
+						return setMinecraftClass("ChatComponentText", owner);
+					}
+				}
+			} catch (Exception e1) {
+				throw new IllegalStateException("Cannot find ChatComponentText class.", e);
+			}
+		}
+		throw new IllegalStateException("Cannot find ChatComponentText class.");
+	}
+	
+	/**
 	 * Attempt to find the ChatSerializer class.
 	 * @return The serializer class.
 	 * @throws IllegalStateException If the class could not be found or deduced.
@@ -830,6 +902,24 @@ public class MinecraftReflection {
 			useFallbackServer();
 			return getMinecraftClass("MinecraftServer");
 		}
+	}
+	
+	/**
+	 * Retrieve the NMS statistics class.
+	 * @return The statistics class.
+	 */
+	public static Class<?> getStatisticClass() {
+		// TODO: Implement fallback
+		return getMinecraftClass("Statistic");
+	}
+	
+	/**
+	 * Retrieve the NMS statistic list class.
+	 * @return The statistic list class.
+	 */
+	public static Class<?> getStatisticListClass() {
+		// TODO: Implement fallback
+		return getMinecraftClass("StatisticList");
 	}
 	
 	/**
@@ -1238,6 +1328,16 @@ public class MinecraftReflection {
  	}
 	
 	/**
+	 * Retrieve the NBT read limiter class.
+	 * <p>
+	 * This is only supported in 1.7.8 (released 2014) and higher.
+	 * @return The NBT read limiter.
+	 */
+	public static Class<?> getNBTReadLimiterClass() {
+		return getMinecraftClass("NBTReadLimiter");
+	}
+	
+	/**
 	 * Retrieve the NBT Compound class.
 	 * @return The NBT Compond class.
 	 */
@@ -1508,6 +1608,20 @@ public class MinecraftReflection {
 	}
 	
 	/**
+	 * Retrieve the google.gson.Gson class used by Minecraft.
+	 * @return The GSON class.
+	 */
+	public static Class<?> getMinecraftGsonClass() {
+		try {
+			return getMinecraftLibraryClass("com.google.gson.Gson");
+		} catch (RuntimeException e) {
+			Class<?> match = FuzzyReflection.fromClass(PacketType.Status.Server.OUT_SERVER_INFO.getPacketClass()).
+					getFieldByType(".*\\.google\\.gson\\.Gson").getType();
+			return setMinecraftLibraryClass("com.google.gson.Gson", match);
+		}
+	}
+	
+	/**
 	 * Determine if a given method retrieved by ASM is a constructor.
 	 * @param name - the name of the method.
 	 * @return TRUE if it is, FALSE otherwise.
@@ -1719,6 +1833,31 @@ public class MinecraftReflection {
 		if (minecraftPackage == null)
 			minecraftPackage = new CachedPackage(getMinecraftPackage(), getClassSource());
 		return minecraftPackage.getPackageClass(className);
+	}
+	
+	/**
+	 * Retrieve the class object of a specific Minecraft library class.
+	 * @param className - the specific library Minecraft class.
+	 * @return Class object.
+	 * @throws RuntimeException If we are unable to find the given class.
+	 */
+	public static Class<?> getMinecraftLibraryClass(String className) {
+		if (libraryPackage == null)
+			libraryPackage = new CachedPackage(getMinecraftLibraryPackage(), getClassSource());
+		return libraryPackage.getPackageClass(className);
+	}
+	
+	/**
+	 * Set the class object for the specific library class.
+	 * @param className - name of the Minecraft library class.
+	 * @param clazz - the new class object.
+	 * @return The provided clazz object.
+	 */
+	private static Class<?> setMinecraftLibraryClass(String className, Class<?> clazz) {
+		if (libraryPackage == null)
+			libraryPackage = new CachedPackage(getMinecraftLibraryPackage(), getClassSource());
+		libraryPackage.setPackageClass(className, clazz);
+		return clazz;
 	}
 	
 	/**

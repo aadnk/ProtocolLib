@@ -2,6 +2,7 @@ package com.comphenix.protocol;
 
 import java.io.Serializable;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
@@ -16,6 +17,7 @@ import com.comphenix.protocol.utility.MinecraftVersion;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Futures;
@@ -27,7 +29,7 @@ import com.google.common.util.concurrent.Futures;
  * rely on IDs alone.
  * @author Kristian
  */
-public class PacketType implements Serializable {
+public class PacketType implements Serializable, Comparable<PacketType> {
 	// Increment whenever the type changes
 	private static final long serialVersionUID = 1L;
 
@@ -641,7 +643,7 @@ public class PacketType implements Serializable {
 	 * @throws IllegalArgumentException If the sender is NULL and the packet doesn't exist.
 	 */
 	public static PacketType fromLegacy(int id, Sender sender) {
-		PacketType type = getLookup().getFromLegacy(id);
+		PacketType type = getLookup().getFromLegacy(id, sender);
 		
 		if (type == null) {
 			if (sender == null)
@@ -690,6 +692,17 @@ public class PacketType implements Serializable {
 	}
 	
 	/**
+	 * Retrieve every packet type with the given UPPER_CAMEL_CASE name.
+	 * <p>
+	 * Note that the collection is unmodiable.
+	 * @param name - the name.
+	 * @return Every packet type, or an empty collection.
+	 */
+	public static Collection<PacketType> fromName(String name) {
+		return getLookup().getFromName(name);
+	}
+	
+	/**
 	 * Determine if a given class represents a packet class.
 	 * @param packetClass - the class to lookup.
 	 * @return TRUE if this is a packet class, FALSE otherwise.
@@ -713,20 +726,7 @@ public class PacketType implements Serializable {
 				ObjectEnum<PacketType> objEnum;
 				
 				// A bit ugly, but performance is critical
-				switch (type.getProtocol()) {
-					case HANDSHAKING:
-						objEnum = type.isClient() ? Handshake.Client.getInstance() : Handshake.Server.getInstance(); break;
-					case PLAY:
-						objEnum = type.isClient() ? Play.Client.getInstance() : Play.Server.getInstance(); break;
-					case STATUS:
-						objEnum = type.isClient() ? Status.Client.getInstance() : Status.Server.getInstance(); break;
-					case LOGIN:
-						objEnum = type.isClient() ? Login.Client.getInstance() : Login.Server.getInstance(); break;
-					case LEGACY:
-						objEnum = type.isClient() ? Legacy.Client.getInstance() : Legacy.Server.getInstance(); break;
-					default:
-						throw new IllegalStateException("Unexpected protocol: " + type.getProtocol());
-				}
+				objEnum = getObjectEnum(type);
 				
 				if (objEnum.registerMember(type, name)) {
 					getLookup().addPacketTypes(Arrays.asList(type));
@@ -737,7 +737,7 @@ public class PacketType implements Serializable {
 		};
 
 		// Execute in the main thread if possible
-		if (Bukkit.getServer() == null || Bukkit.isPrimaryThread()) {
+		if (Bukkit.getServer() == null || Application.isPrimaryThread()) {
 			try {
 				return Futures.immediateFuture(callable.call());
 			} catch (Exception e) {
@@ -745,6 +745,28 @@ public class PacketType implements Serializable {
 			}
 		}
 		return ProtocolLibrary.getExecutorSync().submit(callable);
+	}
+	
+	/**
+	 * Retrieve the correct object enum from a specific packet type.
+	 * @param type - the packet type.
+	 * @return The corresponding object enum.
+	 */
+	public static ObjectEnum<PacketType> getObjectEnum(final PacketType type) {
+		switch (type.getProtocol()) {
+			case HANDSHAKING:
+				return type.isClient() ? Handshake.Client.getInstance() : Handshake.Server.getInstance(); 
+			case PLAY:
+				return type.isClient() ? Play.Client.getInstance() : Play.Server.getInstance(); 
+			case STATUS:
+				return type.isClient() ? Status.Client.getInstance() : Status.Server.getInstance(); 
+			case LOGIN:
+				return type.isClient() ? Login.Client.getInstance() : Login.Server.getInstance(); 
+			case LEGACY:
+				return type.isClient() ? Legacy.Client.getInstance() : Legacy.Server.getInstance(); 
+			default:
+				throw new IllegalStateException("Unexpected protocol: " + type.getProtocol());
+		}
 	}
 	
 	/**
@@ -846,6 +868,14 @@ public class PacketType implements Serializable {
 			return null;
 		}
 	}
+	
+	/**
+	 * Retrieve the declared enum name of this packet type.
+	 * @return The enum name.
+	 */
+	public String name() {
+		return getObjectEnum(this).getDeclaredName(this);
+	}
 
 	/**
 	 * Retrieve the Minecraft version for the current ID.
@@ -883,6 +913,16 @@ public class PacketType implements Serializable {
 				   legacyId == other.legacyId;
 		}
 		return false;
+	}
+	
+	@Override
+	public int compareTo(PacketType other) {
+		return ComparisonChain.start().
+				compare(protocol, other.getProtocol()).
+				compare(sender, other.getSender()).
+				compare(currentId, other.getCurrentId()).
+				compare(legacyId, other.getLegacyId()).
+				result();
 	}
 	
 	@Override

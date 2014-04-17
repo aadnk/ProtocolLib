@@ -4,8 +4,6 @@ import org.bukkit.entity.Player;
 
 import com.comphenix.protocol.PacketType.Protocol;
 import com.comphenix.protocol.events.NetworkMarker;
-import com.comphenix.protocol.events.PacketEvent;
-
 
 /**
  * Represents a closed injector.
@@ -38,7 +36,7 @@ class ClosedInjector implements Injector {
 	}
 
 	@Override
-	public void recieveClientPacket(Object packet, NetworkMarker marker, boolean filtered) {
+	public void recieveClientPacket(Object packet) {
 		// Do nothing
 	}
 
@@ -48,27 +46,12 @@ class ClosedInjector implements Injector {
 	}
 
 	@Override
-	public boolean unignorePacket(Object packet) {
-		return false;
-	}
-
-	@Override
-	public boolean ignorePacket(Object packet) {
-		return false;
-	}
-
-	@Override
 	public NetworkMarker getMarker(Object packet) {
 		return null;
 	}
 
 	@Override
 	public void saveMarker(Object packet, NetworkMarker marker) {
-		// Do nothing
-	}
-
-	@Override
-	public void saveEvent(NetworkMarker marker, PacketEvent event) {
 		// Do nothing
 	}
 

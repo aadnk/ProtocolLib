@@ -36,7 +36,7 @@ import com.google.common.io.Files;
  * 
  * @author Kristian
  */
-class ProtocolConfig {
+public class ProtocolConfig {
 	private static final String LAST_UPDATE_FILE = "lastupdate";
 	
 	private static final String SECTION_GLOBAL = "global";
@@ -110,14 +110,13 @@ class ProtocolConfig {
 			try {
 				return Long.parseLong(Files.toString(dataFile, Charsets.UTF_8));
 			} catch (NumberFormatException e) {
-				throw new RuntimeException("Cannot parse " + dataFile + " as a number.", e);
+				plugin.getLogger().warning("Cannot parse " + dataFile + " as a number.");
 			} catch (IOException e) {
-				throw new RuntimeException("Cannot read " + dataFile, e);
+				plugin.getLogger().warning("Cannot read " + dataFile);
 			}
-		} else {
-			// Default last update
-			return 0;
 		}
+		// Default last update
+		return 0;
 	}
 	
 	/**
@@ -356,7 +355,6 @@ class ProtocolConfig {
 	 * Set whether or not the background compiler for structure modifiers is enabled or not.
 	 * <p>
 	 * This setting will take effect next time ProtocolLib is started.
-	 * 
 	 * @param enabled - TRUE if is enabled/running, FALSE otherwise.
 	 */
 	public void setBackgroundCompilerEnabled(boolean enabled) {

@@ -50,6 +50,7 @@ import org.bukkit.plugin.PluginManager;
 
 import com.comphenix.protocol.AsynchronousManager;
 import com.comphenix.protocol.PacketType;
+import com.comphenix.protocol.PacketType.Sender;
 import com.comphenix.protocol.ProtocolManager;
 import com.comphenix.protocol.async.AsyncFilterManager;
 import com.comphenix.protocol.async.AsyncMarker;
@@ -99,6 +100,11 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 	public static final ReportType REPORT_PLUGIN_VERIFIER_ERROR = new ReportType("Verifier error: %s");
 	
 	/**
+	 * The number of ticks in a second.
+	 */
+	public static final int TICKS_PER_SECOND = 20;
+	
+	/**
 	 * Sets the inject hook type. Different types allow for maximum compatibility.
 	 * @author Kristian
 	 */
@@ -129,7 +135,6 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 	}
 	
 	// The amount of time to wait until we actually unhook every player
-	private static final int TICKS_PER_SECOND = 20;
 	private static final int UNHOOK_DELAY = 5 * TICKS_PER_SECOND; 
 	
 	// Delayed unhook
@@ -199,6 +204,9 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 	// Login packets
 	private LoginPackets loginPackets;
 	
+	// Debug mode
+	private boolean debug;
+	
 	/**
 	 * Only create instances of this class if protocol lib is disabled.
 	 */
@@ -228,8 +236,19 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 		this.classLoader = builder.getClassLoader();
 		this.reporter = builder.getReporter();
 		
-		// The plugin verifier
-		this.pluginVerifier = new PluginVerifier(builder.getLibrary());
+		// The plugin verifier - we don't want to stop ProtocolLib just because its failing
+		try {
+			this.pluginVerifier = new PluginVerifier(builder.getLibrary());
+		} catch (OutOfMemoryError e) {
+			throw e;
+		} catch (ThreadDeath e) {
+			throw e;
+		} catch (Throwable e) {
+			reporter.reportWarning(this, Report.newBuilder(REPORT_PLUGIN_VERIFIER_ERROR).
+					messageParam(e.getMessage()).error(e));
+		}
+		
+		// Prepare version
 		this.minecraftVersion = builder.getMinecraftVersion();
 		this.loginPackets = new LoginPackets(minecraftVersion);
 		
@@ -238,7 +257,7 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 		
 		// Use the correct injection type
 		if (MinecraftReflection.isUsingNetty()) {
-			this.nettyInjector = new NettyProtocolInjector(this, reporter);
+			this.nettyInjector = new NettyProtocolInjector(builder.getLibrary(), this, reporter);
 			this.playerInjection = nettyInjector.getPlayerInjector();
 			this.packetInjector = nettyInjector.getPacketInjector();
 			
@@ -301,6 +320,21 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 		return asyncFilterManager;
 	}
 	
+	@Override
+	public boolean isDebug() {
+		return debug;
+	}
+
+	@Override
+	public void setDebug(boolean debug) {
+		this.debug = debug;
+		
+		// Inform components that can handle debug mode
+		if (nettyInjector != null) {
+			nettyInjector.setDebug(debug);
+		}
+	}
+	
 	/**
 	 * Retrieves how the server packets are read.
 	 * @return Injection method for reading server packets.
@@ -334,6 +368,9 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 	 * @param plugin - plugin to check.
 	 */
 	private void printPluginWarnings(Plugin plugin) {
+		if (pluginVerifier == null)
+			return;
+		
 		try {
 			switch (pluginVerifier.verify(plugin)) {
 				case NO_DEPEND:
@@ -342,7 +379,7 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 					// Do nothing
 					break;
 			}
-		} catch (IllegalStateException e) {
+		} catch (Exception e) {
 			reporter.reportWarning(this, Report.newBuilder(REPORT_PLUGIN_VERIFIER_ERROR).messageParam(e.getMessage()));
 		}
 	}
@@ -373,7 +410,7 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 				
 				verifyWhitelist(listener, sending);
 				sendingListeners.addListener(listener, sending);
-				enablePacketFilters(listener, ConnectionSide.SERVER_SIDE, sending.getTypes());
+				enablePacketFilters(listener, sending.getTypes());
 				
 				// Make sure this is possible
 				playerInjection.checkListener(listener);
@@ -385,7 +422,7 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 			if (hasReceiving) {
 				verifyWhitelist(listener, receiving);
 				recievedListeners.addListener(listener, receiving);
-				enablePacketFilters(listener, ConnectionSide.CLIENT_SIDE, receiving.getTypes());
+				enablePacketFilters(listener, receiving.getTypes());
 			}
 			if (hasReceiving)
 				incrementPhases(processPhase(receiving, ConnectionSide.CLIENT_SIDE));
@@ -600,16 +637,13 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 	 * @param side - which side the event will arrive from.
 	 * @param packets - the packet id(s).
 	 */
-	private void enablePacketFilters(PacketListener listener, ConnectionSide side, Iterable<PacketType> packets) {
-		if (side == null)
-			throw new IllegalArgumentException("side cannot be NULL.");
-
+	private void enablePacketFilters(PacketListener listener, Iterable<PacketType> packets) {
 		// Note the difference between unsupported and valid.
 		// Every packet ID between and including 0 - 255 is valid, but only a subset is supported.
 		
 		for (PacketType type : packets) {
 			// Only register server packets that are actually supported by Minecraft
-			if (side.isForServer()) {
+			if (type.getSender() == Sender.SERVER) {
 				// Note that we may update the packet list here
 				if (!knowsServerPackets || PacketRegistry.getServerPacketTypes().contains(type))
 					playerInjection.addPacketHandler(type, listener.getSendingWhitelist().getOptions());
@@ -620,7 +654,7 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 			}
 			
 			// As above, only for client packets
-			if (side.isForClient() && packetInjector != null) {
+			if (type.getSender() == Sender.CLIENT && packetInjector != null) {
 				if (!knowsClientPackets || PacketRegistry.getClientPacketTypes().contains(type))
 					packetInjector.addPacketHandler(type, listener.getReceivingWhitelist().getOptions());
 				else
@@ -903,8 +937,9 @@ public final class PacketFilterManager implements ProtocolManager, ListenerInvok
 	 * @param players - list of players to uninject. 
 	 */
 	public void uninitializePlayers(Player[] players) {
-		for (Player player : players)
+		for (Player player : players) {
 			playerInjection.uninjectPlayer(player);
+		}
 	}
 	
 	/**

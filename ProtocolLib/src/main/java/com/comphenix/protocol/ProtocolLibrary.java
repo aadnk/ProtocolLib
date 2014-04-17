@@ -90,16 +90,23 @@ public class ProtocolLibrary extends JavaPlugin {
 	/**
 	 * The maximum version ProtocolLib has been tested with,
 	 */
-	public static final String MAXIMUM_MINECRAFT_VERSION = "1.6.4";
+	public static final String MAXIMUM_MINECRAFT_VERSION = "1.7.4";
 	
 	/**
-	 * The date (with ISO 8601) when the most recent version was released.
+	 * The date (with ISO 8601 or YYYY-MM-DD) when the most recent version was released.
 	 */
-	public static final String MINECRAFT_LAST_RELEASE_DATE = "2013-07-08";
+	public static final String MINECRAFT_LAST_RELEASE_DATE = "2013-12-10";
 	
 	// Update information
 	static final String BUKKIT_DEV_SLUG = "protocollib";
 	static final int BUKKIT_DEV_ID = 45564;
+	
+	// Different commands
+	private enum ProtocolCommand {
+		FILTER,
+		PACKET,
+		PROTOCOL
+	}
 	
 	/**
 	 * The number of milliseconds per second.
@@ -114,6 +121,9 @@ public class ProtocolLibrary extends JavaPlugin {
 	// Error reporter
 	private static ErrorReporter reporter = new BasicErrorReporter();
 	
+	// Strongly typed configuration
+	private static ProtocolConfig config;
+	
 	// Metrics and statistisc
 	private Statistics statistisc;
 
@@ -126,15 +136,15 @@ public class ProtocolLibrary extends JavaPlugin {
 	
 	// Used to clean up server packets that have expired. But mostly required to simulate 
 	// recieving client packets.
-	private int asyncPacketTask = -1;
+	private int packetTask = -1;
 	private int tickCounter = 0;
-	private static final int ASYNC_PACKET_DELAY = 1;
+	private static final int ASYNC_MANAGER_DELAY = 1;
 	
 	// Used to unhook players after a delay
 	private DelayedSingleTask unhookTask;
 	
 	// Settings/options
-	private ProtocolConfig config;
+	private int configExpectedMod = -1;
 	
 	// Updater
 	private Updater updater;
@@ -156,6 +166,7 @@ public class ProtocolLibrary extends JavaPlugin {
 	public void onLoad() {
 		// Load configuration
 		logger = getLoggerSafely();
+		Application.registerPrimaryThread();
 		
 		// Initialize enhancer factory
 		EnhancerFactory.getInstance().setClassLoader(getClassLoader());
@@ -226,18 +237,44 @@ public class ProtocolLibrary extends JavaPlugin {
 			} catch (IllegalArgumentException e) {
 				reporter.reportWarning(config, Report.newBuilder(REPORT_CANNOT_PARSE_INJECTION_METHOD).error(e));
 			}
-			
-			// Initialize command handlers
-			commandProtocol = new CommandProtocol(reporter, this, updater, config);
-			commandFilter = new CommandFilter(reporter, this, config);
-			commandPacket = new CommandPacket(reporter, this, logger, commandFilter, protocolManager);
-			
+						
 			// Send logging information to player listeners too
+			initializeCommands();
 			setupBroadcastUsers(PERMISSION_INFO);
 			
+		} catch (OutOfMemoryError e) {
+			throw e;
+		} catch (ThreadDeath e) {
+			throw e;
 		} catch (Throwable e) {
 			reporter.reportDetailed(this, Report.newBuilder(REPORT_PLUGIN_LOAD_ERROR).error(e).callerParam(protocolManager));
 			disablePlugin();
+		}
+	}
+
+	/**
+	 * Initialize all command handlers.
+	 */
+	private void initializeCommands() {
+		// Initialize command handlers
+		for (ProtocolCommand command : ProtocolCommand.values()) {
+			try {
+				switch (command) {
+					case PROTOCOL: 
+						commandProtocol = new CommandProtocol(reporter, this, updater, config); break;
+					case FILTER: 
+						commandFilter = new CommandFilter(reporter, this, config); break;
+					case PACKET:
+						commandPacket = new CommandPacket(reporter, this, logger, commandFilter, protocolManager); break;
+				}
+			} catch (OutOfMemoryError e) {
+				throw e;
+			} catch (ThreadDeath e) {
+				throw e;
+			} catch (Throwable e) {
+				reporter.reportWarning(this, Report.newBuilder(REPORT_CANNOT_REGISTER_COMMAND).
+					messageParam(command.name(), e.getMessage()).error(e));
+			}
 		}
 	}
 	
@@ -364,8 +401,12 @@ public class ProtocolLibrary extends JavaPlugin {
 				
 			// Worker that ensures that async packets are eventually sent
 			// It also performs the update check.
-			createAsyncTask(server);
+			createPacketTask(server);
 		
+		} catch (OutOfMemoryError e) {
+			throw e;
+		} catch (ThreadDeath e) {
+			throw e;
 		} catch (Throwable e) {
 			reporter.reportDetailed(this, Report.newBuilder(REPORT_PLUGIN_ENABLE_ERROR).error(e));
 			disablePlugin();
@@ -377,6 +418,10 @@ public class ProtocolLibrary extends JavaPlugin {
 			if (config.isMetricsEnabled()) {
 				statistisc = new Statistics(this);
 			}
+		} catch (OutOfMemoryError e) {
+			throw e;
+		} catch (ThreadDeath e) {
+			throw e;
 		} catch (IOException e) {
 			reporter.reportDetailed(this, Report.newBuilder(REPORT_METRICS_IO_ERROR).error(e).callerParam(statistisc));
 		} catch (Throwable e) {
@@ -458,8 +503,9 @@ public class ProtocolLibrary extends JavaPlugin {
 		
 	private void registerCommand(String name, CommandExecutor executor) {
 		try {
+			// Ignore these - they must have printed an error already
 			if (executor == null) 
-				throw new RuntimeException("Executor was NULL.");
+				return;
 			
 			PluginCommand command = getCommand(name);
 			
@@ -483,31 +529,47 @@ public class ProtocolLibrary extends JavaPlugin {
 		getServer().getPluginManager().disablePlugin(this);
 	}
 	
-	private void createAsyncTask(Server server) {
+	private void createPacketTask(Server server) {
 		try {
-			if (asyncPacketTask >= 0)
-				throw new IllegalStateException("Async task has already been created");
+			if (packetTask >= 0)
+				throw new IllegalStateException("Packet task has already been created");
 			
 			// Attempt to create task
-			asyncPacketTask = server.getScheduler().scheduleSyncRepeatingTask(this, new Runnable() {
+			packetTask = server.getScheduler().scheduleSyncRepeatingTask(this, new Runnable() {
 				@Override
 				public void run() {
 					AsyncFilterManager manager = (AsyncFilterManager) protocolManager.getAsynchronousManager();
 					
 					// We KNOW we're on the main thread at the moment
 					manager.sendProcessedPackets(tickCounter++, true);
+				
+					// House keeping
+					updateConfiguration();
 					
 					// Check for updates too
-					if (!UPDATES_DISABLED) {
+					if (!UPDATES_DISABLED && (tickCounter % 20) == 0) {
 						checkUpdates();
 					}
 				}
-			}, ASYNC_PACKET_DELAY, ASYNC_PACKET_DELAY);
+			}, ASYNC_MANAGER_DELAY, ASYNC_MANAGER_DELAY);
 		
+		} catch (OutOfMemoryError e) {
+			throw e;
+		} catch (ThreadDeath e) {
+			throw e;
 		} catch (Throwable e) {
-			if (asyncPacketTask == -1) {
+			if (packetTask == -1) {
 				reporter.reportDetailed(this, Report.newBuilder(REPORT_CANNOT_CREATE_TIMEOUT_TASK).error(e));
 			}
+		}
+	}
+	
+	private void updateConfiguration() {
+		if (config != null && config.getModificationCount() != configExpectedMod) {
+			configExpectedMod = config.getModificationCount();
+			
+			// Update the debug flag
+			protocolManager.setDebug(config.isDebug());
 		}
 	}
 	
@@ -551,9 +613,9 @@ public class ProtocolLibrary extends JavaPlugin {
 		}
 		
 		// Clean up
-		if (asyncPacketTask >= 0) {
-			getServer().getScheduler().cancelTask(asyncPacketTask);
-			asyncPacketTask = -1;
+		if (packetTask >= 0) {
+			getServer().getScheduler().cancelTask(packetTask);
+			packetTask = -1;
 		}
 		
 		// And redirect handler too
@@ -583,10 +645,16 @@ public class ProtocolLibrary extends JavaPlugin {
 	// Get the Bukkit logger first, before we try to create our own
 	private Logger getLoggerSafely() {
 		Logger log = null;
-
+		
 		try {
 			log = getLogger();
-		} catch (Throwable e) { }
+		} catch (OutOfMemoryError e) {
+			throw e;
+		} catch (ThreadDeath e) {
+			throw e;
+		} catch (Throwable e) {
+			// Ignore
+		}
 
 		// Use the default logger instead
 		if (log == null)
@@ -602,6 +670,14 @@ public class ProtocolLibrary extends JavaPlugin {
 	 */
 	public static ErrorReporter getErrorReporter() {
 		return reporter;
+	}
+	
+	/**
+	 * Retrieve the current strongly typed configuration.
+	 * @return The configuration, or NULL if ProtocolLib hasn't loaded yet.
+	 */
+	public static ProtocolConfig getConfiguration() {
+		return config;
 	}
 	
 	/**

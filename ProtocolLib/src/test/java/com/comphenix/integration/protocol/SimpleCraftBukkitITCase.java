@@ -11,6 +11,8 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.simple.SimpleLogger;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.PluginDescriptionFile;
@@ -20,6 +22,7 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.powermock.core.classloader.annotations.PowerMockIgnore;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 
 import com.comphenix.protocol.ProtocolLibrary;
@@ -29,6 +32,7 @@ import com.google.common.io.Files;
 
 // Damn final classes ...
 @RunWith(org.powermock.modules.junit4.PowerMockRunner.class)
+@PowerMockIgnore({ "org.apache.log4j.*", "org.apache.logging.*", "org.bukkit.craftbukkit.libs.jline.*" })
 @PrepareForTest(PluginDescriptionFile.class)
 public class SimpleCraftBukkitITCase {	
 	// The fake plugin
@@ -50,7 +54,14 @@ public class SimpleCraftBukkitITCase {
 	@BeforeClass
 	public static void setupCraftBukkit() throws Exception {
 		setupPlugins();
-		org.bukkit.craftbukkit.Main.main(new String[0]);
+
+		try {
+			org.bukkit.craftbukkit.Main.main(new String[0]);
+		} finally {
+			System.out.println("Current class loader: " + Thread.currentThread().getContextClassLoader());
+			System.out.println("Loader of SimpleLogger: " + SimpleLogger.class.getClassLoader());
+			System.out.println("Loader of Logger: " + Logger.class.getClassLoader());
+		}
 		
 		// We need to wait until the server object is ready
 		while (Bukkit.getServer() == null)
@@ -61,7 +72,7 @@ public class SimpleCraftBukkitITCase {
 	
 		// No need to look for updates
 		FieldUtils.writeStaticField(ProtocolLibrary.class, "UPDATES_DISABLED", Boolean.TRUE, true);
-		
+	
 		// Wait until the server and all the plugins have loaded
 		Bukkit.getScheduler().callSyncMethod(FAKE_PLUGIN, new Callable<Object>() {
 			@Override
@@ -72,6 +83,7 @@ public class SimpleCraftBukkitITCase {
 		}).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
 	
 		// Plugins are now ready
+		ProtocolLibrary.getConfiguration().setDebug(true);
 	}
 	
 	/**
@@ -94,21 +106,32 @@ public class SimpleCraftBukkitITCase {
 	@SuppressWarnings("deprecation")
 	private static void setupPlugins() throws IOException {
 		File pluginDirectory = new File("plugins/");
+		File srcDirectory = new File("../");
 		File bestFile = null;
 		int bestLength = Integer.MAX_VALUE;
-		
-		// Copy the ProtocolLib plugin to the server
-		Files.deleteDirectoryContents(pluginDirectory);
-		
-		for (File file : new File("../").listFiles()) {
+				
+		for (File file : srcDirectory.listFiles()) {
 			String name = file.getName();
-			
-			if (name.startsWith("ProtocolLib") && name.length() < bestLength) {
+		
+			if (file.isFile() && name.startsWith("ProtocolLib") && name.length() < bestLength) {
 				bestLength = name.length();
 				bestFile = file;
 			}
 		}
-		Files.copy(bestFile, new File(pluginDirectory, bestFile.getName()));
+		
+		if (bestFile == null) {
+			throw new IllegalStateException("Cannot find ProtocolLib in " + srcDirectory);
+		}
+		
+		// Copy the ProtocolLib plugin to the server
+		if (pluginDirectory.exists()) {
+			Files.deleteDirectoryContents(pluginDirectory);
+		}
+			
+		pluginDirectory.mkdirs();
+		
+		File destination = new File(pluginDirectory, bestFile.getName()).getAbsoluteFile();
+		Files.copy(bestFile, destination);
 	}
 	
 	/**

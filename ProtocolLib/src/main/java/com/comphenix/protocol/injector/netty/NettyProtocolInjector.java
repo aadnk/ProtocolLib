@@ -8,6 +8,7 @@ import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.Set;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
 
 import net.minecraft.util.io.netty.channel.Channel;
 import net.minecraft.util.io.netty.channel.ChannelFuture;
@@ -47,7 +48,7 @@ public class NettyProtocolInjector implements ChannelListener {
     private List<VolatileField> bootstrapFields = Lists.newArrayList();
     
     // The channel injector factory
-    private InjectionFactory injectionFactory = new InjectionFactory();
+    private InjectionFactory injectionFactory;
     
     // List of network managers
     private volatile List<Object> networkManagers;
@@ -65,12 +66,27 @@ public class NettyProtocolInjector implements ChannelListener {
     
     // Handle errors
     private ErrorReporter reporter;
+    private boolean debug;
     
-    public NettyProtocolInjector(ListenerInvoker invoker, ErrorReporter reporter) {
+    public NettyProtocolInjector(Plugin plugin, ListenerInvoker invoker, ErrorReporter reporter) {
+    	this.injectionFactory = new InjectionFactory(plugin);
 		this.invoker = invoker;
 		this.reporter = reporter;
 	}
 
+    @Override
+    public boolean isDebug() {
+		return debug;
+	}
+    
+    /**
+     * Set whether or not the debug mode is enabled.
+     * @param debug - TRUE if it is, FALSE otherwise.
+     */
+	public void setDebug(boolean debug) {
+		this.debug = debug;
+	}
+    
 	/**
      * Inject into the spigot connection class.
      */
@@ -87,7 +103,7 @@ public class NettyProtocolInjector implements ChannelListener {
             Object serverConnection = serverConnectionMethod.invoke(server);
             
             // Handle connected channels
-            final ChannelInboundHandler initProtocol = new ChannelInitializer<Channel>() {
+            final ChannelInboundHandler endInitProtocol = new ChannelInitializer<Channel>() {
                 @Override
                 protected void initChannel(Channel channel) throws Exception {
                 	try {
@@ -102,15 +118,24 @@ public class NettyProtocolInjector implements ChannelListener {
                 }
             };
             
+            // This is executed before Minecraft's channel handler
+            final ChannelInboundHandler beginInitProtocol = new ChannelInitializer<Channel>() {
+            	@Override
+            	protected void initChannel(Channel channel) throws Exception {
+            		// Our only job is to add init protocol
+            		channel.pipeline().addLast(endInitProtocol);
+            	}
+            };
+            
             // Add our handler to newly created channels
             final ChannelHandler connectionHandler = new ChannelInboundHandlerAdapter() {
             	@Override
             	public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
                     Channel channel = (Channel) msg;
 
-                    // Execute the other handlers before adding our own
+                    // Prepare to initialize ths channel
+                    channel.pipeline().addFirst(beginInitProtocol);
                     ctx.fireChannelRead(msg);
-                    channel.pipeline().addLast(initProtocol);
             	}
             };
             
@@ -202,48 +227,27 @@ public class NettyProtocolInjector implements ChannelListener {
     }
     
 	@Override
-	public Object onPacketSending(Injector injector, Object packet, NetworkMarker marker) {
+	public PacketEvent onPacketSending(Injector injector, Object packet) {
 		Class<?> clazz = packet.getClass();
 		
 		if (sendingFilters.contains(clazz)) {
-			// Check for ignored packets
-			if (injector.unignorePacket(packet)) {
-				return packet;
-			}
 			PacketContainer container = new PacketContainer(PacketRegistry.getPacketType(clazz), packet);
-			PacketEvent event = packetQueued(container, injector.getPlayer());
-			
-			if (!event.isCancelled()) {
-				injector.saveEvent(marker, event);
-				return event.getPacket().getHandle();
-			} else {
-				return null; // Cancel
-			}
+			return packetQueued(container, injector.getPlayer());
 		}
 		// Don't change anything
-		return packet;
+		return null;
 	}
 
 	@Override
-	public Object onPacketReceiving(Injector injector, Object packet, NetworkMarker marker) {
+	public PacketEvent onPacketReceiving(Injector injector, Object packet, NetworkMarker marker) {
 		Class<?> clazz = packet.getClass();
 		
 		if (reveivedFilters.contains(clazz)) {
-			// Check for ignored packets
-			if (injector.unignorePacket(packet)) {
-				return packet;
-			}
 			PacketContainer container = new PacketContainer(PacketRegistry.getPacketType(clazz), packet);
-			PacketEvent event = packetReceived(container, injector.getPlayer(), marker);
-			
-			if (!event.isCancelled()) {
-				return event.getPacket().getHandle();
-			} else {
-				return null; // Cancel
-			}
+			return packetReceived(container, injector.getPlayer(), marker);
 		}
 		// Don't change anything
-		return packet;
+		return null;
 	}
 
 	@Override
@@ -314,10 +318,10 @@ public class NettyProtocolInjector implements ChannelListener {
 			
 			@Override
 			public boolean uninjectPlayer(Player player) {
-				injectionFactory.fromPlayer(player, listener).close();
+				// Just let Netty clean this up
 				return true;
 			}
-			
+
 			@Override
 			public void sendServerPacket(Player receiver, PacketContainer packet, NetworkMarker marker, boolean filters) throws InvocationTargetException {
 				injectionFactory.fromPlayer(receiver, listener).
@@ -327,7 +331,7 @@ public class NettyProtocolInjector implements ChannelListener {
 			@Override
 			public void recieveClientPacket(Player player, Object mcPacket) throws IllegalAccessException, InvocationTargetException {
 				injectionFactory.fromPlayer(player, listener).
-					recieveClientPacket(mcPacket, null, true);
+					recieveClientPacket(mcPacket);
 			}
 			
 			@Override

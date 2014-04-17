@@ -594,7 +594,7 @@ public class AsyncListenerHandler {
 						listener.onPacketReceiving(packet);
 					
 					// And we're done
-					tracker.endTracking(token, packet.getPacketID());
+					tracker.endTracking(token, packet.getPacketType());
 					
 				} else {
 					if (packet.isServerPacket())
@@ -604,6 +604,10 @@ public class AsyncListenerHandler {
 				}
 			}
 			
+		} catch (OutOfMemoryError e) {
+			throw e;
+		} catch (ThreadDeath e) {
+			throw e;
 		} catch (Throwable e) {
 			// Minecraft doesn't want your Exception.
 			filterManager.getErrorReporter().reportMinimal(listener.getPlugin(), methodName, e);

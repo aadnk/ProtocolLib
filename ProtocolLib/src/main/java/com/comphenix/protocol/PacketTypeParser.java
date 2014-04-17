@@ -1,6 +1,8 @@
 package com.comphenix.protocol;
 
+import java.util.Collection;
 import java.util.Deque;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
@@ -16,13 +18,16 @@ import com.google.common.collect.Sets;
 class PacketTypeParser {
 	public final static Range<Integer> DEFAULT_MAX_RANGE = Ranges.closed(0, 255);
 	
+	private Sender side = null;
+	private Protocol protocol = null;
+	
 	public Set<PacketType> parseTypes(Deque<String> arguments, Range<Integer> defaultRange) {
-		Sender side = null;
-		Protocol protocol = null;
 		Set<PacketType> result = Sets.newHashSet();
-
+		side = null;
+		protocol = null;
+		
 		// Find these first
-		while (protocol == null || side == null) {
+		while (side == null) {
 			String arg = arguments.poll();
 			
 			// Attempt to parse a side or protocol first
@@ -39,14 +44,29 @@ class PacketTypeParser {
 					continue;
 				}
 			}
-			throw new IllegalArgumentException("No side and protocol specified.");
+			throw new IllegalArgumentException("Specify connection side (CLIENT or SERVER).");
 		}
 		
 		// Then we move on to parsing IDs (named packet types soon to come)
 		List<Range<Integer>> ranges = RangeParser.getRanges(arguments, DEFAULT_MAX_RANGE);
+
+		// And finally, parse packet names if we have a protocol
+		if (protocol != null) {
+			for (Iterator<String> it = arguments.iterator(); it.hasNext(); ) {
+				String name = it.next().toUpperCase();
+				Collection<PacketType> names = PacketType.fromName(name);
+				
+				for (PacketType type : names) {
+					if (type.getProtocol() == protocol && type.getSender() == side) {
+						result.add(type);
+						it.remove();
+					}
+				}
+			}
+		}
 		
 		// Supply a default integer range
-		if (ranges.size() == 0) {
+		if (ranges.isEmpty() && result.isEmpty()) {
 			ranges = Lists.newArrayList();
 			ranges.add(defaultRange);
 		}
@@ -66,6 +86,22 @@ class PacketTypeParser {
 			}
 		}
 		return result;
+	}
+	
+	/**
+	 * Retrieve the last parsed protocol.
+	 * @return Last protocol.
+	 */
+	public Protocol getLastProtocol() {
+		return protocol;
+	}
+	
+	/**
+	 * Retrieve the last sender.
+	 * @return Last sender.
+	 */
+	public Sender getLastSide() {
+		return side;
 	}
 	
 	/**

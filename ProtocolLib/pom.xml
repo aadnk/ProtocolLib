@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.comphenix.protocol</groupId>
   <artifactId>ProtocolLib</artifactId>
-  <version>3.1.0</version>
+  <version>3.3.1</version>
   <packaging>jar</packaging>
   <description>Provides read/write access to the Minecraft protocol.</description>
   
@@ -43,6 +43,7 @@
     <resources>
       <resource>
         <directory>src/main/resources</directory>
+        <filtering>true</filtering>
         <excludes>
           <exclude>**/*.java</exclude>
         </excludes>
@@ -231,7 +232,7 @@
   	<dependency>
   		<groupId>org.bukkit</groupId>
   		<artifactId>craftbukkit</artifactId>
-  		<version>1.7.2-R0.1-SNAPSHOT</version>
+  		<version>1.7.8-R0.1-SNAPSHOT</version>
   		<scope>provided</scope>
   	</dependency>
   	<dependency>

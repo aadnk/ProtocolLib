@@ -125,7 +125,7 @@ public class DetailedErrorReporter implements ErrorReporter {
 	private static Logger getBukkitLogger() {
 		try {
 			return Bukkit.getLogger();
-		} catch (Throwable e) {
+		} catch (LinkageError e) {
 			return Logger.getLogger("Minecraft");
 		}
 	}
@@ -418,9 +418,12 @@ public class DetailedErrorReporter implements ErrorReporter {
 			try {
 				if (!apacheCommonsMissing)
 					return (ToStringBuilder.reflectionToString(value, ToStringStyle.MULTI_LINE_STYLE, false, null));
-			} catch (Throwable ex) {
+			} catch (LinkageError ex) {
 				// Apache is probably missing
 				apacheCommonsMissing = true;
+			} catch (Exception e) {
+				// Don't use the error logger to log errors in error logging (that could lead to infinite loops)
+				System.err.print("[ProtocolLib] Warning: Cannot convert to a String with Apache: " + e.getMessage());
 			}
 			
 			// Use our custom object printer instead
