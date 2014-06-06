@@ -23,12 +23,14 @@ package com.comphenix.protocol.utility;
 
 import java.lang.reflect.Method;
 import org.bukkit.Bukkit;
+import org.bukkit.Server;
 
 import com.comphenix.protocol.reflect.FieldUtils;
 import com.comphenix.protocol.reflect.MethodUtils;
 import com.comphenix.protocol.utility.RemappedClassSource.RemapperUnavaibleException.Reason;
 
 class RemappedClassSource extends ClassSource {
+	
 	private Object classRemapper;
 	private Method mapType;
 	private ClassLoader loader;
@@ -55,7 +57,12 @@ class RemappedClassSource extends ClassSource {
 	 */
 	public RemappedClassSource initialize() {
 		try {
-			if (Bukkit.getServer() == null || !Bukkit.getServer().getVersion().contains("MCPC-Plus")) {
+			Server server = Bukkit.getServer();
+			
+			if (server == null) {
+				throw new IllegalStateException("Bukkit not initialized.");
+			}
+			if (!server.getVersion().contains("MCPC-Plus") && !server.getVersion().contains("Cauldron")) {
 				throw new RemapperUnavaibleException(Reason.MCPC_NOT_PRESENT);
 			}
 			
