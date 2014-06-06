@@ -1956,7 +1956,7 @@ public class MinecraftReflection {
 			try {
 				return classSource = new RemappedClassSource().initialize();
 			} catch (RemapperUnavaibleException e) {
-				if (e.getReason() != Reason.Cauldron_NOT_PRESENT)
+				if (e.getReason() != Reason.CAULDRON_NOT_PRESENT)
 					reporter.reportWarning(MinecraftReflection.class, Report.newBuilder(REPORT_CANNOT_FIND_Cauldron_REMAPPER));
 			} catch (Exception e) {
 				reporter.reportWarning(MinecraftReflection.class, Report.newBuilder(REPORT_CANNOT_LOAD_CPC_REMAPPER));

@@ -56,7 +56,7 @@ class RemappedClassSource extends ClassSource {
 	public RemappedClassSource initialize() {
 		try {
 			if (Bukkit.getServer() == null || !Bukkit.getServer().getVersion().contains("Cauldron")) {
-				throw new RemapperUnavaibleException(Reason.Cauldron_NOT_PRESENT);
+				throw new RemapperUnavaibleException(Reason.CAULDRON_NOT_PRESENT);
 			}
 			
 			// Obtain the Class remapper used by Cauldron
@@ -111,8 +111,8 @@ class RemappedClassSource extends ClassSource {
 		private static final long serialVersionUID = 1L;
 
 		public enum Reason {
-			Cauldron_NOT_PRESENT("The server is not running Cauldron"),
-			REMAPPER_DISABLED("Running an Cauldron server but the remapper is unavailable. Please turn it on!");
+			CAULDRON_NOT_PRESENT("The server is not running Cauldron"),
+			REMAPPER_DISABLED("Running a Cauldron server but the remapper is unavailable. Please turn it on!");
 			
 			private final String message;
 			

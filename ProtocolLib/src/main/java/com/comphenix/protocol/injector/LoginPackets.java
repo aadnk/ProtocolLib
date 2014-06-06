@@ -45,7 +45,7 @@ class LoginPackets {
 	}
 	
 	/**
-	 * Determine if we are runnign Cauldron.
+	 * Determine if we are running Cauldron.
 	 * @return TRUE if we are, FALSE otherwise.
 	 */
 	private static boolean isCauldron() {
