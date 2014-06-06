@@ -38,7 +38,7 @@ import com.google.common.collect.Lists;
 
 
 public class NettyProtocolInjector implements ChannelListener {   
-	public static final ReportType REPORT_CANNOT_INJECT_INCOMING_CHANNEL = new ReportType("Unable to to inject incoming channel %s.");
+	public static final ReportType REPORT_CANNOT_INJECT_INCOMING_CHANNEL = new ReportType("Unable to inject incoming channel %s.");
 	
     private volatile boolean injected;
     private volatile boolean closed;
@@ -96,11 +96,25 @@ public class NettyProtocolInjector implements ChannelListener {
             throw new IllegalStateException("Cannot inject twice.");
         try {
         	FuzzyReflection fuzzyServer = FuzzyReflection.fromClass(MinecraftReflection.getMinecraftServerClass());
-            Method serverConnectionMethod = fuzzyServer.getMethodByParameters("getServerConnection", MinecraftReflection.getServerConnectionClass(), new Class[] {});
+            List<Method> serverConnectionMethods = fuzzyServer.getMethodListByParameters(MinecraftReflection.getServerConnectionClass(), new Class[] {});
             
             // Get the server connection
             Object server = fuzzyServer.getSingleton();
-            Object serverConnection = serverConnectionMethod.invoke(server);
+            Object serverConnection = null;
+            
+            for (Method method : serverConnectionMethods) {
+            	try {
+            		serverConnection = method.invoke(server);
+            		
+            		// Continue until we get a server connection
+            		if (serverConnection != null) {
+            			break;
+            		}
+            	} catch (Exception e) {
+            		// Try the next though
+            		e.printStackTrace();
+            	}
+            }
             
             // Handle connected channels
             final ChannelInboundHandler endInitProtocol = new ChannelInitializer<Channel>() {
