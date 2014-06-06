@@ -147,7 +147,7 @@ class TileEntityAccessor<T extends BlockState> {
 	private void findMethodUsingCGLib(T blockState) throws IOException {
 		final Class<?> nbtCompoundClass = MinecraftReflection.getNBTCompoundClass();
 		
-		// This is a much slower method, but it is necessary in MCPC
+		// This is a much slower method, but it is necessary in Cauldron
 		Enhancer enhancer = EnhancerFactory.getInstance().createEnhancer();
 		enhancer.setSuperclass(nbtCompoundClass);
 		enhancer.setCallback(new MethodInterceptor() {

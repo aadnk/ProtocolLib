@@ -65,7 +65,7 @@ class LegacyPacketRegistry {
 				Field packetsField = getPacketRegistry().getFieldByType("packetsField", Map.class);
 				packetToID = (Map<Class, Integer>) FieldUtils.readStaticField(packetsField, true);
 			} catch (IllegalArgumentException e) {
-				// Spigot 1.2.5 MCPC workaround
+				// Spigot 1.2.5 Cauldron workaround
 				try {
 					packetToID = getSpigotWrapper();
 				} catch (Exception e2) {

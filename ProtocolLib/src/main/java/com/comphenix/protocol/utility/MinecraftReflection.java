@@ -81,9 +81,9 @@ import com.google.common.cache.CacheLoader;
  * @author Kristian
  */
 public class MinecraftReflection {
-	public static final ReportType REPORT_CANNOT_FIND_MCPC_REMAPPER = new ReportType("Cannot find MCPC remapper.");
-	public static final ReportType REPORT_CANNOT_LOAD_CPC_REMAPPER = new ReportType("Unable to load MCPC remapper.");
-	public static final ReportType REPORT_NON_CRAFTBUKKIT_LIBRARY_PACKAGE = new ReportType("Cannot find standard Minecraft library location. Assuming MCPC.");
+	public static final ReportType REPORT_CANNOT_FIND_Cauldron_REMAPPER = new ReportType("Cannot find Cauldron remapper.");
+	public static final ReportType REPORT_CANNOT_LOAD_CPC_REMAPPER = new ReportType("Unable to load Cauldron remapper.");
+	public static final ReportType REPORT_NON_CRAFTBUKKIT_LIBRARY_PACKAGE = new ReportType("Cannot find standard Minecraft library location. Assuming Cauldron.");
 	
 	/**
 	 * Regular expression that matches a canonical Java class.
@@ -298,7 +298,7 @@ public class MinecraftReflection {
 			getClassSource().loadClass(CachedPackage.combine(MINECRAFT_LIBRARY_PACKAGE, "com.google.gson.Gson"));
 			
 		} catch (Exception e) {
-			// Assume it's MCPC
+			// Assume it's Cauldron
 			MINECRAFT_LIBRARY_PACKAGE = "";
 			ProtocolLibrary.getErrorReporter().reportWarning(MinecraftReflection.class, 
 				Report.newBuilder(REPORT_NON_CRAFTBUKKIT_LIBRARY_PACKAGE));
@@ -1952,12 +1952,12 @@ public class MinecraftReflection {
 		
 		// Lazy pattern again
 		if (classSource == null) {
-			// Attempt to use MCPC
+			// Attempt to use Cauldron
 			try {
 				return classSource = new RemappedClassSource().initialize();
 			} catch (RemapperUnavaibleException e) {
-				if (e.getReason() != Reason.MCPC_NOT_PRESENT)
-					reporter.reportWarning(MinecraftReflection.class, Report.newBuilder(REPORT_CANNOT_FIND_MCPC_REMAPPER));
+				if (e.getReason() != Reason.Cauldron_NOT_PRESENT)
+					reporter.reportWarning(MinecraftReflection.class, Report.newBuilder(REPORT_CANNOT_FIND_Cauldron_REMAPPER));
 			} catch (Exception e) {
 				reporter.reportWarning(MinecraftReflection.class, Report.newBuilder(REPORT_CANNOT_LOAD_CPC_REMAPPER));
 			} 

@@ -49,17 +49,17 @@ class RemappedClassSource extends ClassSource {
 	}
 	
 	/**
-	 * Attempt to load the MCPC remapper.
+	 * Attempt to load the Cauldron remapper.
 	 * @return TRUE if we succeeded, FALSE otherwise.
 	 * @throws RemapperUnavaibleException If the remapper is not present.
 	 */
 	public RemappedClassSource initialize() {
 		try {
-			if (Bukkit.getServer() == null || !Bukkit.getServer().getVersion().contains("MCPC-Plus")) {
-				throw new RemapperUnavaibleException(Reason.MCPC_NOT_PRESENT);
+			if (Bukkit.getServer() == null || !Bukkit.getServer().getVersion().contains("Cauldron")) {
+				throw new RemapperUnavaibleException(Reason.Cauldron_NOT_PRESENT);
 			}
 			
-			// Obtain the Class remapper used by MCPC+
+			// Obtain the Class remapper used by Cauldron
 			this.classRemapper = FieldUtils.readField(getClass().getClassLoader(), "remapper", true);
 			
 			if (this.classRemapper == null) {
@@ -78,7 +78,7 @@ class RemappedClassSource extends ClassSource {
 			throw e;
 		} catch (Exception e) {
 			// Damn it
-			throw new RuntimeException("Cannot access MCPC remapper.", e);
+			throw new RuntimeException("Cannot access Cauldron remapper.", e);
 		}
 	}
 
@@ -111,8 +111,8 @@ class RemappedClassSource extends ClassSource {
 		private static final long serialVersionUID = 1L;
 
 		public enum Reason {
-			MCPC_NOT_PRESENT("The server is not running MCPC+"),
-			REMAPPER_DISABLED("Running an MCPC+ server but the remapper is unavailable. Please turn it on!");
+			Cauldron_NOT_PRESENT("The server is not running Cauldron"),
+			REMAPPER_DISABLED("Running an Cauldron server but the remapper is unavailable. Please turn it on!");
 			
 			private final String message;
 			

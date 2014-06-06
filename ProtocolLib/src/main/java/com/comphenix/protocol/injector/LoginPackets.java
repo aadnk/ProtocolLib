@@ -38,18 +38,18 @@ class LoginPackets {
 		}
 		serverSide.add(Packets.Server.KICK_DISCONNECT);
 		
-		// MCPC++ contains Forge, which uses packet 250 during login
-		if (isMCPC()) {
+		// Cauldron contains Forge, which uses packet 250 during login
+		if (isCauldron()) {
 			clientSide.add(Packets.Client.CUSTOM_PAYLOAD);
 		}
 	}
 	
 	/**
-	 * Determine if we are runnign MCPC.
+	 * Determine if we are runnign Cauldron.
 	 * @return TRUE if we are, FALSE otherwise.
 	 */
-	private static boolean isMCPC() {
-		return Bukkit.getServer().getVersion().contains("MCPC-Plus");
+	private static boolean isCauldron() {
+		return Bukkit.getServer().getVersion().contains("Cauldron");
 	}
 	
 	/**
