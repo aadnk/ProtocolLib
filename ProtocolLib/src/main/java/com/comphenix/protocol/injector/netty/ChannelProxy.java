@@ -33,8 +33,8 @@ abstract class ChannelProxy implements Channel {
 	private static Map<Class<?>, FieldAccessor> MESSAGE_LOOKUP = Maps.newConcurrentMap();
 	
 	// The underlying channel
-	private Channel delegate;
-	private Class<?> messageClass;
+	protected Channel delegate;
+	protected Class<?> messageClass;
 	
 	// Event loop proxy
 	private transient EventLoopProxy loopProxy;

@@ -19,6 +19,7 @@ import net.minecraft.util.io.netty.channel.ChannelHandler;
 import net.minecraft.util.io.netty.channel.ChannelHandlerContext;
 import net.minecraft.util.io.netty.channel.ChannelInboundHandler;
 import net.minecraft.util.io.netty.channel.ChannelInboundHandlerAdapter;
+import net.minecraft.util.io.netty.channel.ChannelPipeline;
 import net.minecraft.util.io.netty.channel.ChannelPromise;
 import net.minecraft.util.io.netty.channel.socket.SocketChannel;
 import net.minecraft.util.io.netty.handler.codec.ByteToMessageDecoder;
@@ -35,7 +36,6 @@ import com.comphenix.protocol.PacketType.Protocol;
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.error.Report;
 import com.comphenix.protocol.error.ReportType;
-import com.comphenix.protocol.error.Report.ReportBuilder;
 import com.comphenix.protocol.events.ConnectionSide;
 import com.comphenix.protocol.events.NetworkMarker;
 import com.comphenix.protocol.events.PacketEvent;
@@ -236,6 +236,26 @@ class ChannelInjector extends ByteToMessageDecoder implements Injector {
 			
 			// Intercept all write methods
 			channelField.setValue(new ChannelProxy(originalChannel, MinecraftReflection.getPacketClass()) {
+				// Compatibility with Spigot 1.8 protocol hack
+				private final PipelineProxy pipelineProxy = new PipelineProxy(originalChannel.pipeline(), this) {
+					@Override
+					public ChannelPipeline addBefore(String baseName, String name, ChannelHandler handler) {
+						// Correct the position of the decoder
+						if ("decoder".equals(baseName)) {
+							if (super.get("protocol_lib_decoder") != null && guessSpigotHandler(handler)) {
+								super.addBefore("protocol_lib_decoder", name, handler);
+								return this;
+							}
+						}
+						return super.addBefore(baseName, name, handler); 
+					}
+				};
+				
+				@Override
+				public ChannelPipeline pipeline() {
+					return pipelineProxy;
+				}
+				
 				@Override
 				protected <T> Callable<T> onMessageScheduled(final Callable<T> callable, FieldAccessor packetAccessor) {
 					final PacketEvent event = handleScheduled(callable, packetAccessor);
@@ -310,6 +330,18 @@ class ChannelInjector extends ByteToMessageDecoder implements Injector {
 		}
 	}
 
+	/**
+	 * Determine if the given object is a Spigot channel handler.
+	 * @param handler - object to test.
+	 * @return TRUE if it is, FALSE if not or unknown.
+	 */
+	private boolean guessSpigotHandler(ChannelHandler handler) {
+		String className = handler != null ? handler.getClass().getCanonicalName() : null;
+		
+		return "org.spigotmc.SpigotDecompressor".equals(className) || 
+			   "org.spigotmc.SpigotCompressor".equals(className);
+	}
+	
 	/**
 	 * Process a given message on the packet listeners.
 	 * @param message - the message/packet.
