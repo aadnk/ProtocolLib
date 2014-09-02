@@ -21,11 +21,13 @@ import java.lang.reflect.Constructor;
 
 import org.bukkit.inventory.ItemStack;
 
+import com.comphenix.protocol.annotations.Spigot;
 import com.comphenix.protocol.reflect.EquivalentConverter;
 import com.comphenix.protocol.reflect.FieldAccessException;
 import com.comphenix.protocol.reflect.StructureModifier;
 import com.comphenix.protocol.reflect.instances.DefaultInstances;
 import com.comphenix.protocol.utility.MinecraftReflection;
+import com.comphenix.protocol.wrappers.WrappedDataWatcher.CustomType;
 import com.google.common.base.Objects;
 
 /**
@@ -95,6 +97,18 @@ public class WrappedWatchableObject extends AbstractWrapper {
 		}
 	}
 	
+	/**
+	 * Construct a custom watchable object from an index, value and custom type.
+	 * @param index - the index.
+	 * @param primary - non-null value of specific types.
+	 * @param secondary - optional secondary value, if the type can store it.
+	 * @param type - the custom Spigot type.
+	 */
+	@Spigot(minimumBuild = 1628)
+	public WrappedWatchableObject(int index, Object value, Object secondary, CustomType type) {
+		this(index, type.newInstance(value, secondary));
+	}
+	
 	// Wrap a NMS object
 	private void load(Object handle) {
 		initialize();
@@ -117,6 +131,15 @@ public class WrappedWatchableObject extends AbstractWrapper {
 			watchableObjectClass = MinecraftReflection.getWatchableObjectClass();
 			baseModifier = new StructureModifier<Object>(watchableObjectClass, null, false);
 		}
+	}
+	
+	/**
+	 * Retrieve the custom type of this object.
+	 * @return The custom type, or NULL if not applicable.
+	 */
+	@Spigot(minimumBuild = 1628)
+	public CustomType getCustomType() {
+		return CustomType.fromValue(getValue());
 	}
 	
 	/**
@@ -264,6 +287,33 @@ public class WrappedWatchableObject extends AbstractWrapper {
 	 */
 	public Object getValue() throws FieldAccessException {
 		return getWrapped(modifier.withType(Object.class).read(0));
+	}
+	
+	/**
+	 * Retrieve the secondary value associated with this watchable object.
+	 * <p>
+	 * This is only applicable for certain {@link CustomType}.
+	 * @return The secondary value, or NULL if not found.
+	 */
+	@Spigot(minimumBuild = 1628)
+	public Object getSecondaryValue() {
+		CustomType type = getCustomType();
+		return type != null ? type.getSecondary(getValue()) : null;
+	}
+	
+	/**
+	 * Set the secondary value. 
+	 * @param secondary - the secondary value.
+	 * @throws IllegalStateException If this watchable object does not have a secondary value.
+	 */
+	@Spigot(minimumBuild = 1628)
+	public void setSecondaryValue(Object secondary) { 
+		CustomType type = getCustomType();
+		
+		if (type == null) {
+			throw new IllegalStateException(this + " does not have a custom type.");
+		}
+		type.setSecondary(getValue(), secondary);
 	}
 	
 	/**
