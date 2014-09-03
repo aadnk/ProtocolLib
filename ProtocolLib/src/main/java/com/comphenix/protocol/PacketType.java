@@ -9,12 +9,13 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 
 import org.bukkit.Bukkit;
+
+import com.comphenix.protocol.annotations.Spigot;
 import com.comphenix.protocol.events.ConnectionSide;
 import com.comphenix.protocol.injector.packet.PacketRegistry;
 import com.comphenix.protocol.reflect.ObjectEnum;
 import com.comphenix.protocol.utility.MinecraftReflection;
 import com.comphenix.protocol.utility.MinecraftVersion;
-
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
@@ -179,6 +180,13 @@ public class PacketType implements Serializable, Comparable<PacketType> {
 			public static final PacketType CUSTOM_PAYLOAD =           new PacketType(PROTOCOL, SENDER, 0x3F, 250);
 			public static final PacketType KICK_DISCONNECT =          new PacketType(PROTOCOL, SENDER, 0x40, 255);
 			
+			@Spigot(minimumBuild = 1628)
+			public static final PacketType TITLE =        			  new PacketType(PROTOCOL, SENDER, 0x45, -1);
+			@Spigot(minimumBuild = 1628)
+			public static final PacketType TAB_HEADER =        		  new PacketType(PROTOCOL, SENDER, 0x47, -1);
+			@Spigot(minimumBuild = 1628)
+			public static final PacketType RESOURCE_PACK_SEND =       new PacketType(PROTOCOL, SENDER, 0x48, -1);
+			
 			// The instance must 
 			private final static Server INSTANCE = new Server();
 			
@@ -224,6 +232,9 @@ public class PacketType implements Serializable, Comparable<PacketType> {
 			public static final PacketType SETTINGS =                 new PacketType(PROTOCOL, SENDER, 0x15, 204);
 			public static final PacketType CLIENT_COMMAND =           new PacketType(PROTOCOL, SENDER, 0x16, 205);
 			public static final PacketType CUSTOM_PAYLOAD =           new PacketType(PROTOCOL, SENDER, 0x17, 250);
+			
+			@Spigot(minimumBuild = 1628)
+			public static final PacketType RESOURCE_PACK_STATUS =     new PacketType(PROTOCOL, SENDER, 0x19, -1);
 			
 			private final static Client INSTANCE = new Client();
 			
@@ -322,6 +333,9 @@ public class PacketType implements Serializable, Comparable<PacketType> {
 			@SuppressWarnings("deprecation")
 			public static final PacketType SUCCESS =                  new PacketType(PROTOCOL, SENDER, 0x02, Packets.Server.LOGIN_SUCCESS);
 
+			@Spigot(minimumBuild = 1628)
+			public static final PacketType LOGIN_COMPRESSION =        new PacketType(PROTOCOL, SENDER, 0x03, -1);
+			
 			private final static Server INSTANCE = new Server();
 			
 			// Prevent accidental construction

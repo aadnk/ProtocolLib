@@ -10,7 +10,8 @@ import java.lang.annotation.Target;
  * @author Kristian
  */
 @Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.CONSTRUCTOR, ElementType.METHOD, ElementType.PACKAGE, ElementType.PARAMETER, ElementType.TYPE})  
+@Target({ElementType.CONSTRUCTOR, ElementType.METHOD, ElementType.PACKAGE, 
+	     ElementType.PARAMETER, ElementType.TYPE, ElementType.FIELD})  
 public @interface Spigot {
 	/**
 	 * The minimum build number of Spigot where this is valid.
