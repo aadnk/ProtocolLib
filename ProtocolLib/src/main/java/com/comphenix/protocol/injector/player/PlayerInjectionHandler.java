@@ -5,9 +5,11 @@ import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.net.InetSocketAddress;
 import java.util.Set;
+
 import org.bukkit.entity.Player;
 
 import com.comphenix.protocol.PacketType;
+import com.comphenix.protocol.annotations.Spigot;
 import com.comphenix.protocol.events.ListenerOptions;
 import com.comphenix.protocol.events.NetworkMarker;
 import com.comphenix.protocol.events.PacketContainer;
@@ -33,6 +35,14 @@ public interface PlayerInjectionHandler {
 		 */
 		BAIL_OUT;
 	}
+	
+	/**
+	 * Retrieve the protocol version of the given player.
+	 * @param player - the player.
+	 * @return The protocol version, or {@link Integer#MIN_VALUE}.
+	 */
+	@Spigot(minimumBuild = 1628)
+	public abstract int getProtocolVersion(Player player);
 	
 	/**
 	 * Retrieves how the server packets are read.
