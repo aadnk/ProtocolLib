@@ -34,6 +34,7 @@ import org.bukkit.entity.Player;
 import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.PacketType.Protocol;
 import com.comphenix.protocol.ProtocolLibrary;
+import com.comphenix.protocol.annotations.Spigot;
 import com.comphenix.protocol.error.Report;
 import com.comphenix.protocol.error.ReportType;
 import com.comphenix.protocol.events.ConnectionSide;
@@ -79,6 +80,9 @@ class ChannelInjector extends ByteToMessageDecoder implements Injector {
 
 	// For retrieving the protocol
 	private static FieldAccessor PROTOCOL_ACCESSOR;
+	
+	// Current version
+	private static volatile MethodAccessor PROTOCOL_VERSION;
 	
 	// The factory that created this injector
 	private InjectionFactory factory;
@@ -165,9 +169,27 @@ class ChannelInjector extends ByteToMessageDecoder implements Injector {
 	 * Get the version of the current protocol.
 	 * @return The version.
 	 */
+	@Spigot(minimumBuild = 1628)
 	@Override
 	public int getProtocolVersion() {
-		return MinecraftProtocolVersion.getCurrentVersion();
+		MethodAccessor accessor = PROTOCOL_VERSION;
+		
+		if (accessor == null) {
+			try {
+				accessor = Accessors.getMethodAccessor(networkManager.getClass(), "getVersion");
+				
+			} catch (RuntimeException e) {
+				// Notify user
+				ProtocolLibrary.getErrorReporter().reportWarning(
+					this, Report.newBuilder(REPORT_CANNOT_FIND_GET_VERSION).error(e));
+				
+				// Fallback method
+				accessor = Accessors.getConstantAccessor(
+						MinecraftProtocolVersion.getCurrentVersion(), null);
+			}
+			PROTOCOL_VERSION = accessor;
+		}
+		return (Integer) accessor.invoke(networkManager);
 	}
 		
 	@Override
