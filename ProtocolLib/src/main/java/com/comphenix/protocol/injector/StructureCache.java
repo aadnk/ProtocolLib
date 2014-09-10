@@ -28,6 +28,7 @@ import com.comphenix.protocol.reflect.StructureModifier;
 import com.comphenix.protocol.reflect.compiler.BackgroundCompiler;
 import com.comphenix.protocol.reflect.compiler.CompileListener;
 import com.comphenix.protocol.reflect.compiler.CompiledStructureModifier;
+import com.comphenix.protocol.reflect.instances.DefaultInstances;
 import com.comphenix.protocol.utility.MinecraftReflection;
 
 /**
@@ -59,18 +60,18 @@ public class StructureCache {
 	 * @return Created packet.
 	 */
 	public static Object newPacket(PacketType type) {
-		try {
-			Class<?> clazz = PacketRegistry.getPacketClassFromType(type, true);
+		Class<?> clazz = PacketRegistry.getPacketClassFromType(type, true);
+		
+		// Check the return value
+		if (clazz != null) {
+			// TODO: Optimize DefaultInstances
+			Object result = DefaultInstances.DEFAULT.create(clazz);
 			
-			// Check the return value
-			if (clazz != null)
-				return clazz.newInstance();
-			throw new IllegalArgumentException("Cannot find associated packet class: " + type);
-		} catch (InstantiationException e) {
-			return null;
-		} catch (IllegalAccessException e) {
-			throw new RuntimeException("Access denied.", e);
+			if (result != null) {
+				return result;
+			}
 		}
+		throw new IllegalArgumentException("Cannot find associated packet class: " + type);
 	}
 	
 	/**
