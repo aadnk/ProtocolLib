@@ -249,6 +249,8 @@
       <version>1.8-R0.1-SNAPSHOT</version>
       <scope>provided</scope>
     </dependency>
+	
+	<!-- Test Dependencies -->
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>

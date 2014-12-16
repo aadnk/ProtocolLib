@@ -147,12 +147,24 @@ public final class StructureCompiler {
 	private static String COMPILED_CLASS = PACKAGE_NAME + "/CompiledStructureModifier";
 	private static String FIELD_EXCEPTION_CLASS = "com/comphenix/protocol/reflect/FieldAccessException";
 	
+	private static String MAGIC_INTERFACE = "sun.reflect.MagicAccessorImpl";
+	
+	// Whether or not the magic interface exists - if so, we can instruct the JVM to ignore visibility checks
+	private boolean hasMagic;
+	
 	/**
 	 * Construct a structure compiler.
 	 * @param loader - main class loader.
 	 */
 	StructureCompiler(ClassLoader loader) {
 		this.loader = loader;
+			
+		try {
+			this.hasMagic = loader.loadClass(MAGIC_INTERFACE) != null;
+			System.out.println("[ProtocolLib] Detected magic interface.");
+		} catch (ClassNotFoundException e) {
+			this.hasMagic = false;
+		}
 	}
 	
 	/**
@@ -198,7 +210,7 @@ public final class StructureCompiler {
 	public synchronized <TField> StructureModifier<TField> compile(StructureModifier<TField> source) {
 
 		// We cannot optimize a structure modifier with no public fields
-		if (!isAnyPublic(source.getFields())) {
+		if (!hasMagic && !isAnyPublic(source.getFields())) {
 			return source;
 		}
 		
@@ -300,7 +312,7 @@ public final class StructureCompiler {
 			Class clazz = (Class) defineMethod.invoke(loader, null, data, 0, data.length);
 			
 			// DEBUG CODE: Print the content of the generated class.
-			//org.objectweb.asm.ClassReader cr = new org.objectweb.asm.ClassReader(data);
+			//ClassReader cr = new ClassReader(data);
 	        //cr.accept(new ASMifierClassVisitor(new PrintWriter(System.out)), 0);
 			
 			return clazz;
@@ -326,7 +338,7 @@ public final class StructureCompiler {
 	private boolean isAnyPublic(List<Field> fields) {
 		// Are any of the fields public?
 		for (int i = 0; i < fields.size(); i++) {
-			if (isPublic(fields.get(i))) {
+			if (isAccessibleDirect(fields.get(i))) {
 				return true;
 			}
 		}
@@ -334,8 +346,14 @@ public final class StructureCompiler {
 		return false;
 	}
 	
-	private boolean isPublic(Field field) {
-		return Modifier.isPublic(field.getModifiers());
+	/**
+	 * Determine if we can access the given field directly.
+	 * @param field the field to check.
+	 * @return TRUE if we can, FALSE otherwise.
+	 */
+	private boolean isAccessibleDirect(Field field) {
+		// We can access it directly with magic
+		return hasMagic || Modifier.isPublic(field.getModifiers());
 	}
 	
 	private boolean isNonFinal(Field field) {
@@ -392,7 +410,7 @@ public final class StructureCompiler {
 				mv.visitFrame(Opcodes.F_SAME, 0, null, 0, null);
 			
 			// Only write to public non-final fields
-			if (isPublic(field) && isNonFinal(field)) {
+			if (hasMagic || (isAccessibleDirect(field) && isNonFinal(field))) {
 				mv.visitVarInsn(Opcodes.ALOAD, 3);
 				mv.visitVarInsn(Opcodes.ALOAD, 2);
 				
@@ -475,7 +493,7 @@ public final class StructureCompiler {
 				mv.visitFrame(Opcodes.F_SAME, 0, null, 0, null);
 			
 			// Note that byte code cannot access non-public fields
-			if (isPublic(field)) {
+			if (isAccessibleDirect(field)) {
 				mv.visitVarInsn(Opcodes.ALOAD, 2);
 				mv.visitFieldInsn(Opcodes.GETFIELD, targetName, field.getName(), typeDescriptor);
 				

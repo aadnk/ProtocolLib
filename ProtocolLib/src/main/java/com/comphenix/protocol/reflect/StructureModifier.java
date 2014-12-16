@@ -25,6 +25,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import sun.reflect.MagicAccessorImplBridge;
+
 import com.comphenix.protocol.reflect.compiler.BackgroundCompiler;
 import com.comphenix.protocol.reflect.instances.BannedGenerator;
 import com.comphenix.protocol.reflect.instances.DefaultInstances;
@@ -44,7 +46,7 @@ import com.google.common.collect.Lists;
  * @param <TField> Type of the fields to retrieve.
  */
 @SuppressWarnings("rawtypes")
-public class StructureModifier<TField> {
+public class StructureModifier<TField> extends MagicAccessorImplBridge {
 	
 	// Object and its type
 	protected Class targetType;
