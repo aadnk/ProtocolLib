@@ -32,6 +32,10 @@
       <id>comphenix-releases</id>
       <url>http://repo.comphenix.net/content/repositories/releases/</url>
     </repository>
+    <repository>
+      <id>spigot-nexus</id>
+      <url>https://hub.spigotmc.org/nexus/content/groups/public/</url>
+    </repository>
   </repositories>
 
   <build>
