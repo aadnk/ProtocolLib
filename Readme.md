@@ -38,7 +38,7 @@ To use this library, first add ProtocolLib.jar to your Java build path. Then, ad
 as a dependency (or soft-dependency, if you can live without it) to your plugin.yml file:
 
 ````yml
-depends: [ProtocolLib]
+depend: [ProtocolLib]
 ````
 
 You can also add ProtocolLib as a Maven dependency:
