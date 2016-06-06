@@ -1,13 +1,13 @@
 package com.comphenix.tinyprotocol;
 
+import org.bukkit.Bukkit;
+
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import org.bukkit.Bukkit;
 
 /**
  * An utility class that simplifies reflection in Bukkit plugins.
