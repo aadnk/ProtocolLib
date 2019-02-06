@@ -54,6 +54,7 @@ You can also add ProtocolLib as a Maven dependency:
     <groupId>com.comphenix.protocol</groupId>
     <artifactId>ProtocolLib-API</artifactId>
     <version>4.4.0</version>
+    <scope>provided</scope>
   </dependency>
 </dependencies>
 ````
