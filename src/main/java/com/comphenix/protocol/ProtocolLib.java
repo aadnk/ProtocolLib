@@ -26,6 +26,7 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.comphenix.protocol.utility.NettyVersion;
 import org.bukkit.Server;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.PluginCommand;
@@ -185,7 +186,11 @@ public class ProtocolLib extends JavaPlugin {
 		// Print the state of the debug mode
 		if (config.isDebug()) {
 			logger.warning("Debug mode is enabled!");
+			logger.info("Detected netty version: " + NettyVersion.getVersion());
+		} else {
+			NettyVersion.getVersion(); // this will cache the version
 		}
+
 		// And the state of the error reporter
 		if (config.isDetailedErrorReporting()) {
 			detailedReporter.setDetailedReporting(true);
