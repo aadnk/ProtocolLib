@@ -17,6 +17,8 @@ package com.comphenix.protocol.reflect;
  * limitations under the License.
  */
 
+import org.bukkit.Bukkit;
+
 import java.lang.ref.Reference;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.InvocationTargetException;
@@ -26,8 +28,6 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.logging.Logger;
-
-import org.bukkit.Bukkit;
 
 /**
  * <p> Utility reflection methods focussed on methods in general rather than properties in particular. </p>
@@ -192,7 +192,7 @@ public class MethodUtils {
      * would match a <code>boolean</code> primitive.</p>
      *
      * <p> This is a convenient wrapper for
-     * {@link #invokeMethod(Object object,String methodName,Object [] args,Class[] parameterTypes)}.
+     * {@link #invokeMethod(Object, String, Object[])}.
      * </p>
      *
      * @param object invoke method on this object
@@ -233,7 +233,7 @@ public class MethodUtils {
      *
      * <p>The behaviour of this method is less deterministic
      * than {@link
-     * #invokeExactMethod(Object object,String methodName,Object [] args,Class[] parameterTypes)}.
+     * #invokeExactMethod(Object, String, Object)}.
      * It loops through all methods with names that match
      * and then executes the first it finds with compatable parameters.</p>
      *
@@ -511,7 +511,7 @@ public class MethodUtils {
      * would match a <code>boolean</code> primitive.</p>
      *
      * <p> This is a convenient wrapper for
-     * {@link #invokeStaticMethod(Class objectClass,String methodName,Object [] args,Class[] parameterTypes)}.
+     * {@link #invokeStaticMethod(Class, String, Object[])}.
      * </p>
      *
      * @param objectClass invoke static method on this class
@@ -553,7 +553,7 @@ public class MethodUtils {
      *
      * <p>The behaviour of this method is less deterministic
      * than {@link
-     * #invokeExactStaticMethod(Class objectClass,String methodName,Object [] args,Class[] parameterTypes)}.
+     * #invokeExactStaticMethod(Class, String, Object)}.
      * It loops through all methods with names that match
      * and then executes the first it finds with compatable parameters.</p>
      *
@@ -900,7 +900,7 @@ public class MethodUtils {
      * 
      * <p>This method is used by
      * {@link
-     * #invokeMethod(Object object,String methodName,Object [] args,Class[] parameterTypes)}.
+     * #invokeMethod(Object, String, Object)}.
      *
      * <p>This method can match primitive parameter by passing in wrapper classes.
      * For example, a <code>Boolean</code> will match a primitive <code>boolean</code>
@@ -1126,7 +1126,7 @@ public class MethodUtils {
      * @return true if the assignement is compatible.
      */
     @SuppressWarnings("unchecked")
-	public static final boolean isAssignmentCompatible(Class parameterType, Class parameterization) {
+	public static boolean isAssignmentCompatible(Class parameterType, Class parameterization) {
         // try plain assignment
         if (parameterType.isAssignableFrom(parameterization)) {
             return true;
@@ -1261,11 +1261,11 @@ public class MethodUtils {
      * Represents the key to looking up a Method by reflection.
      */
     private static class MethodDescriptor {
-        private Class cls;
-        private String methodName;
-        private Class[] paramTypes;
-        private boolean exact;
-        private int hashCode;
+        private final Class cls;
+        private final String methodName;
+        private final Class[] paramTypes;
+        private final boolean exact;
+        private final int hashCode;
 
         /**
          * The sole constructor.

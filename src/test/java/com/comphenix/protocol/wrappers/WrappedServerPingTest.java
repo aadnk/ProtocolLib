@@ -1,15 +1,13 @@
 package com.comphenix.protocol.wrappers;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
-
 import com.comphenix.protocol.BukkitInitialization;
 import com.comphenix.protocol.wrappers.WrappedServerPing.CompressedImage;
 import com.google.common.io.Resources;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.yaml.snakeyaml.external.biz.base64Coder.Base64Coder;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 public class WrappedServerPingTest {
 

@@ -17,42 +17,27 @@
 
 package com.comphenix.protocol;
 
-import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Deque;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.WeakHashMap;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
-import org.bukkit.ChatColor;
-import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Player;
-import org.bukkit.plugin.Plugin;
-
-import com.comphenix.protocol.utility.ByteBuddyGenerated;
 import com.comphenix.protocol.PacketType.Sender;
 import com.comphenix.protocol.concurrency.PacketTypeSet;
 import com.comphenix.protocol.error.ErrorReporter;
 import com.comphenix.protocol.error.Report;
 import com.comphenix.protocol.error.ReportType;
 import com.comphenix.protocol.events.ListeningWhitelist;
-import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.events.PacketEvent;
 import com.comphenix.protocol.events.PacketListener;
-import com.comphenix.protocol.reflect.EquivalentConverter;
-import com.comphenix.protocol.reflect.PrettyPrinter;
-import com.comphenix.protocol.reflect.PrettyPrinter.ObjectPrinter;
 import com.comphenix.protocol.utility.ChatExtensions;
 import com.comphenix.protocol.utility.HexDumper;
-import com.comphenix.protocol.utility.MinecraftReflection;
-import com.comphenix.protocol.wrappers.BukkitConverters;
 import com.google.common.collect.MapMaker;
 import com.google.common.collect.Sets;
+import org.bukkit.ChatColor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
+
+import java.lang.reflect.InvocationTargetException;
+import java.util.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Handles the "packet" debug command.
@@ -76,25 +61,25 @@ class CommandPacket extends CommandBase {
 	 */
 	public static final int PAGE_LINE_COUNT = 9;
 	
-	private Plugin plugin;
-	private Logger logger;
-	private ProtocolManager manager;
+	private final Plugin plugin;
+	private final Logger logger;
+	private final ProtocolManager manager;
 		
-	private ChatExtensions chatter;
+	private final ChatExtensions chatter;
 	
 	// The main parser
-	private PacketTypeParser typeParser = new PacketTypeParser();
+	private final PacketTypeParser typeParser = new PacketTypeParser();
 	
 	// Paged message
-	private Map<CommandSender, List<String>> pagedMessage = new WeakHashMap<CommandSender, List<String>>();
+	private final Map<CommandSender, List<String>> pagedMessage = new WeakHashMap<CommandSender, List<String>>();
 	
 	// Current registered packet types
-	private PacketTypeSet packetTypes = new PacketTypeSet();
-	private PacketTypeSet extendedTypes = new PacketTypeSet();
+	private final PacketTypeSet packetTypes = new PacketTypeSet();
+	private final PacketTypeSet extendedTypes = new PacketTypeSet();
 	
 	// Compare listeners
-	private PacketTypeSet compareTypes = new PacketTypeSet();
-	private Map<PacketEvent, String> originalPackets = new MapMaker().weakKeys().makeMap();
+	private final PacketTypeSet compareTypes = new PacketTypeSet();
+	private final Map<PacketEvent, String> originalPackets = new MapMaker().weakKeys().makeMap();
 	
 	// The packet listener
 	private PacketListener listener;
@@ -103,7 +88,7 @@ class CommandPacket extends CommandBase {
 	private PacketListener compareListener;
 	
 	// Filter packet events
-	private CommandFilter filter;
+	private final CommandFilter filter;
 	
 	public CommandPacket(ErrorReporter reporter, Plugin plugin, Logger logger, CommandFilter filter, ProtocolManager manager) {
 		super(reporter, CommandBase.PERMISSION_ADMIN, NAME, 1);

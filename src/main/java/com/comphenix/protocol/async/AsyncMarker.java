@@ -28,6 +28,7 @@ import com.comphenix.protocol.reflect.FuzzyReflection;
 import com.comphenix.protocol.utility.MinecraftReflection;
 import com.comphenix.protocol.utility.MinecraftVersion;
 import com.google.common.primitives.Longs;
+
 import java.io.IOException;
 import java.io.Serializable;
 import java.lang.reflect.InvocationTargetException;
@@ -72,11 +73,11 @@ public class AsyncMarker implements Serializable, Comparable<AsyncMarker> {
 	private transient Iterator<PrioritizedListener<AsyncListenerHandler>> listenerTraversal;
 
 	// Timeout handling
-	private long initialTime;
+	private final long initialTime;
 	private long timeout;
 
 	// Packet order
-	private long originalSendingIndex;
+	private final long originalSendingIndex;
 	private long newSendingIndex;
 
 	// Used to determine if a packet must be reordered in the sending queue
@@ -92,7 +93,7 @@ public class AsyncMarker implements Serializable, Comparable<AsyncMarker> {
 	private volatile boolean asyncCancelled;
 
 		// Whether or not to delay processing
-	private AtomicInteger processingDelay = new AtomicInteger();
+	private final AtomicInteger processingDelay = new AtomicInteger();
 
 	// Used to synchronize processing on the shared PacketEvent
 	private Object processingLock = new Object();

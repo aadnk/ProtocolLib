@@ -17,15 +17,15 @@
 
 package com.comphenix.protocol.wrappers.nbt;
 
-import java.io.DataOutput;
-import java.lang.reflect.Method;
-
 import com.comphenix.protocol.reflect.FieldAccessException;
 import com.comphenix.protocol.reflect.FuzzyReflection;
 import com.comphenix.protocol.reflect.StructureModifier;
 import com.comphenix.protocol.utility.MinecraftReflection;
 import com.comphenix.protocol.wrappers.nbt.io.NbtBinarySerializer;
 import com.google.common.base.Objects;
+
+import java.io.DataOutput;
+import java.lang.reflect.Method;
 
 /**
  * Represents a wrapped NBT tag element, composite or not.
@@ -43,10 +43,10 @@ class WrappedElement<TType> implements NbtWrapper<TType> {
 	private static volatile Boolean hasNbtName;
 	
 	// Structure modifiers for the different NBT elements
-	private static StructureModifier<?>[] modifiers = new StructureModifier<?>[NbtType.values().length];
+	private static final StructureModifier<?>[] modifiers = new StructureModifier<?>[NbtType.values().length];
 	
 	// The underlying NBT object
-	private Object handle;
+	private final Object handle;
 	
 	// Saved type
 	private NbtType type;

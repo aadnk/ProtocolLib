@@ -17,11 +17,11 @@
 
 package com.comphenix.protocol.wrappers.nbt;
 
+import com.google.common.primitives.Primitives;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import com.google.common.primitives.Primitives;
 
 /**
  * Represents all the element types 
@@ -94,14 +94,14 @@ public enum NbtType {
 	 */
 	TAG_LONG_ARRAY(12, long[].class);
 	
-	private int rawID;
-	private Class<?> valueType;
+	private final int rawID;
+	private final Class<?> valueType;
 	
 	// Used to lookup a specified NBT
-	private static NbtType[] lookup;
+	private static final NbtType[] lookup;
 	
 	// Lookup NBT by class
-	private static Map<Class<?>, NbtType> classLookup;
+	private static final Map<Class<?>, NbtType> classLookup;
 	
 	static {
 		NbtType[] values = values();

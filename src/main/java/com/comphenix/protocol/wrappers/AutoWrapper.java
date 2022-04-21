@@ -16,21 +16,18 @@
  */
 package com.comphenix.protocol.wrappers;
 
+import com.comphenix.protocol.reflect.EquivalentConverter;
 import com.comphenix.protocol.reflect.accessors.Accessors;
 import com.comphenix.protocol.reflect.accessors.ConstructorAccessor;
 import com.comphenix.protocol.reflect.accessors.FieldAccessor;
-import com.comphenix.protocol.reflect.instances.DefaultInstances;
+import com.comphenix.protocol.utility.MinecraftReflection;
 import com.google.common.base.Defaults;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
+
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
-
-import com.comphenix.protocol.reflect.EquivalentConverter;
-import com.comphenix.protocol.utility.MinecraftReflection;
 
 /**
  * Automatically wraps an internal NMS class to a non-versioned, deofbuscated class.
@@ -49,8 +46,8 @@ import com.comphenix.protocol.utility.MinecraftReflection;
 public class AutoWrapper<T> implements EquivalentConverter<T> {
 	private static final Object[] NO_ARGS = new Object[0];
 
-	private Map<Integer, Function<Object, Object>> wrappers = new HashMap<>();
-	private Map<Integer, Function<Object, Object>> unwrappers = new HashMap<>();
+	private final Map<Integer, Function<Object, Object>> wrappers = new HashMap<>();
+	private final Map<Integer, Function<Object, Object>> unwrappers = new HashMap<>();
 
 	// lazy
 	private FieldAccessor[] nmsAccessors;
@@ -59,8 +56,8 @@ public class AutoWrapper<T> implements EquivalentConverter<T> {
 	private Object[] nmsDefaultArgs;
 	private ConstructorAccessor nmsInstanceCreator;
 
-	private Class<T> wrapperClass;
-	private Class<?> nmsClass;
+	private final Class<T> wrapperClass;
+	private final Class<?> nmsClass;
 
 	private AutoWrapper(Class<T> wrapperClass, Class<?> nmsClass) {
 		this.wrapperClass = wrapperClass;

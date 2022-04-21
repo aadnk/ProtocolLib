@@ -1,13 +1,10 @@
 package com.comphenix.protocol.wrappers;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
 import com.comphenix.protocol.BukkitInitialization;
 import com.comphenix.protocol.reflect.EquivalentConverter;
 import com.comphenix.protocol.reflect.accessors.Accessors;
 import com.comphenix.protocol.reflect.accessors.FieldAccessor;
 import com.google.common.collect.Sets;
-import java.util.Set;
 import net.minecraft.network.EnumProtocol;
 import net.minecraft.network.protocol.game.PacketPlayInClientCommand.EnumClientCommand;
 import net.minecraft.world.EnumDifficulty;
@@ -16,6 +13,10 @@ import net.minecraft.world.entity.player.EnumChatVisibility;
 import net.minecraft.world.level.EnumGamemode;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+
+import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class EnumWrappersTest {
 

@@ -16,16 +16,6 @@
  */
 package com.comphenix.protocol;
 
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.text.MessageFormat;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.logging.*;
-
 import com.comphenix.protocol.PacketType.Protocol;
 import com.comphenix.protocol.PacketType.Sender;
 import com.comphenix.protocol.events.ListeningWhitelist;
@@ -37,12 +27,21 @@ import com.comphenix.protocol.reflect.accessors.Accessors;
 import com.comphenix.protocol.reflect.accessors.MethodAccessor;
 import com.comphenix.protocol.utility.MinecraftReflection;
 import com.google.common.base.Charsets;
-
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.Plugin;
+
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.text.MessageFormat;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.logging.*;
 
 /**
  * Logs packets to a given stream
@@ -53,8 +52,8 @@ public class PacketLogging implements CommandExecutor, PacketListener {
 
 	private static MethodAccessor HEX_DUMP;
 
-	private List<PacketType> sendingTypes = new ArrayList<>();
-	private List<PacketType> receivingTypes = new ArrayList<>();
+	private final List<PacketType> sendingTypes = new ArrayList<>();
+	private final List<PacketType> receivingTypes = new ArrayList<>();
 
 	private ListeningWhitelist sendingWhitelist;
 	private ListeningWhitelist receivingWhitelist;

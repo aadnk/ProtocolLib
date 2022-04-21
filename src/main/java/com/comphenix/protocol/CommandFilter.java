@@ -1,32 +1,21 @@
 package com.comphenix.protocol;
 
-import java.util.ArrayList;
-import java.util.Deque;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
-
-import javax.script.Invocable;
-import javax.script.ScriptEngine;
-import javax.script.ScriptEngineManager;
-import javax.script.ScriptException;
-
-import org.bukkit.ChatColor;
-import org.bukkit.command.CommandSender;
-import org.bukkit.conversations.Conversable;
-import org.bukkit.conversations.Conversation;
-import org.bukkit.conversations.ConversationAbandonedEvent;
-import org.bukkit.conversations.ConversationAbandonedListener;
-import org.bukkit.conversations.ConversationContext;
-import org.bukkit.conversations.ConversationFactory;
-import org.bukkit.plugin.Plugin;
-
 import com.comphenix.protocol.MultipleLinesPrompt.MultipleConversationCanceller;
 import com.comphenix.protocol.error.ErrorReporter;
 import com.comphenix.protocol.error.Report;
 import com.comphenix.protocol.error.ReportType;
 import com.comphenix.protocol.events.PacketEvent;
 import com.google.common.collect.Sets;
+import org.bukkit.ChatColor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.conversations.*;
+import org.bukkit.plugin.Plugin;
+
+import javax.script.Invocable;
+import javax.script.ScriptEngine;
+import javax.script.ScriptEngineManager;
+import javax.script.ScriptException;
+import java.util.*;
 
 /**
  * A command to apply JavaScript filtering to the packet command.
@@ -206,13 +195,13 @@ public class CommandFilter extends CommandBase {
 	private FilterFailedHandler defaultFailedHandler;
 	
 	// Currently registered filters
-	private List<Filter> filters = new ArrayList<Filter>();
+	private final List<Filter> filters = new ArrayList<Filter>();
 	
 	// Owner plugin
 	private final Plugin plugin;
 	
 	// Whether or not the command is enabled
-	private ProtocolConfig config;
+	private final ProtocolConfig config;
 	
 	// Script engine
 	private ScriptEngine engine;

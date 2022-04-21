@@ -20,13 +20,14 @@ package com.comphenix.protocol.async;
 import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.events.PacketEvent;
 import com.comphenix.protocol.reflect.FieldAccessException;
+import org.bukkit.entity.Player;
+
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.PriorityBlockingQueue;
-import org.bukkit.entity.Player;
 
 /**
  * Represents packets ready to be transmitted to a client.
@@ -38,9 +39,9 @@ abstract class PacketSendingQueue {
 	public static final int INITIAL_CAPACITY = 10;
 	// Whether or not packet transmission must occur on a specific thread
 	private final boolean notThreadSafe;
-	private PriorityBlockingQueue<PacketEventHolder> sendingQueue;
+	private final PriorityBlockingQueue<PacketEventHolder> sendingQueue;
 	// Asynchronous packet sending
-	private Executor asynchronousSender;
+	private final Executor asynchronousSender;
 	// Whether or not we've run the cleanup procedure
 	private boolean cleanedUp = false;
 

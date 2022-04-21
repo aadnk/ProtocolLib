@@ -17,15 +17,14 @@
 
 package com.comphenix.protocol.wrappers.collection;
 
+import com.google.common.base.Function;
+import com.google.common.collect.Collections2;
+
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
-
-import javax.annotation.Nullable;
-
-import com.google.common.base.Function;
-import com.google.common.collect.Collections2;
 
 /**
  * Represents a map that wraps another map by transforming the entries going in and out.
@@ -37,10 +36,10 @@ import com.google.common.collect.Collections2;
  */
 public abstract class ConvertedMap<Key, VInner, VOuter> extends AbstractConverted<VInner, VOuter> implements Map<Key, VOuter> {
 	// Inner map
-	private Map<Key, VInner> inner;
+	private final Map<Key, VInner> inner;
 
 	// Inner conversion
-	private BiFunction<Key, VOuter, VInner> innerConverter = new BiFunction<Key, VOuter, VInner>() {
+	private final BiFunction<Key, VOuter, VInner> innerConverter = new BiFunction<Key, VOuter, VInner>() {
 		@Override
 		public VInner apply(Key key, VOuter outer) {
 			return toInner(key, outer);
@@ -48,7 +47,7 @@ public abstract class ConvertedMap<Key, VInner, VOuter> extends AbstractConverte
 	};
 	
 	// Outer conversion
-	private BiFunction<Key, VInner, VOuter> outerConverter = new BiFunction<Key, VInner, VOuter>() {
+	private final BiFunction<Key, VInner, VOuter> outerConverter = new BiFunction<Key, VInner, VOuter>() {
 		@Override
 		public VOuter apply(Key key, VInner inner) {
 			return toOuter(key, inner);

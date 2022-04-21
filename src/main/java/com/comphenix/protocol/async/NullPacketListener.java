@@ -17,13 +17,8 @@
 
 package com.comphenix.protocol.async;
 
+import com.comphenix.protocol.events.*;
 import org.bukkit.plugin.Plugin;
-
-import com.comphenix.protocol.events.ListenerOptions;
-import com.comphenix.protocol.events.ListenerPriority;
-import com.comphenix.protocol.events.ListeningWhitelist;
-import com.comphenix.protocol.events.PacketEvent;
-import com.comphenix.protocol.events.PacketListener;
 
 /**
  * Represents a NO OPERATION listener.
@@ -32,9 +27,9 @@ import com.comphenix.protocol.events.PacketListener;
  */
 class NullPacketListener implements PacketListener {
 	
-	private ListeningWhitelist sendingWhitelist;
-	private ListeningWhitelist receivingWhitelist;
-	private Plugin plugin;
+	private final ListeningWhitelist sendingWhitelist;
+	private final ListeningWhitelist receivingWhitelist;
+	private final Plugin plugin;
 
 	/**
 	 * Create a no-op listener with the same whitelist and plugin as the given listener.

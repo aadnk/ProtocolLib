@@ -1,16 +1,16 @@
 package com.comphenix.protocol.wrappers;
 
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
-
 import com.comphenix.protocol.reflect.accessors.Accessors;
 import com.comphenix.protocol.reflect.accessors.MethodAccessor;
 import com.comphenix.protocol.wrappers.collection.ConvertedSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multiset;
+
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 
 /**
  * Wrap multimap and multiset from another version of Guava by using reflection.
@@ -27,24 +27,24 @@ class GuavaReflection {
 	public static <TKey, TValue> Multimap<TKey, TValue> getBukkitMultimap(
 			final Object multimap) {
 		return new Multimap<TKey, TValue>() {
-			private Class<?> multimapClass = multimap.getClass();
-			private MethodAccessor methodAsMap = 		 Accessors.getMethodAccessor(multimapClass, "asMap");
-			private MethodAccessor methodClear = 		 Accessors.getMethodAccessor(multimapClass, "clear");
-			private MethodAccessor methodContainsEntry = Accessors.getMethodAccessor(multimapClass, "containsEntry",Object.class, Object.class);
-			private MethodAccessor methodContainsKey = 	 Accessors.getMethodAccessor(multimapClass, "containsKey", Object.class);
-			private MethodAccessor methodContainsValue = Accessors.getMethodAccessor(multimapClass, "containsValue", Object.class);
-			private MethodAccessor methodEntries = 	     Accessors.getMethodAccessor(multimapClass, "entries");
-			private MethodAccessor methodGet = 			 Accessors.getMethodAccessor(multimapClass, "get", Object.class);
-			private MethodAccessor methodIsEmpty = 		 Accessors.getMethodAccessor(multimapClass, "isEmpty");
-			private MethodAccessor methodKeySet = 		 Accessors.getMethodAccessor(multimapClass, "keySet");
-			private MethodAccessor methodKeys = 		 Accessors.getMethodAccessor(multimapClass, "keys");
-			private MethodAccessor methodPut = 			 Accessors.getMethodAccessor(multimapClass, "put", Object.class, Object.class);
-			private MethodAccessor methodPutAll = 		 Accessors.getMethodAccessor(multimapClass, "putAll", Object.class, Iterable.class);
-			private MethodAccessor methodRemove = 		 Accessors.getMethodAccessor(multimapClass, "remove", Object.class, Object.class);
-			private MethodAccessor methodRemoveAll = 	 Accessors.getMethodAccessor(multimapClass, "removeAll", Object.class);
-			private MethodAccessor methodReplaceValues = Accessors.getMethodAccessor(multimapClass, "replaceValues", Object.class, Iterable.class);
-			private MethodAccessor methodSize = 		 Accessors.getMethodAccessor(multimapClass, "size");
-			private MethodAccessor methodValues =		 Accessors.getMethodAccessor(multimapClass, "values");
+			private final Class<?> multimapClass = multimap.getClass();
+			private final MethodAccessor methodAsMap = 		 Accessors.getMethodAccessor(multimapClass, "asMap");
+			private final MethodAccessor methodClear = 		 Accessors.getMethodAccessor(multimapClass, "clear");
+			private final MethodAccessor methodContainsEntry = Accessors.getMethodAccessor(multimapClass, "containsEntry",Object.class, Object.class);
+			private final MethodAccessor methodContainsKey = 	 Accessors.getMethodAccessor(multimapClass, "containsKey", Object.class);
+			private final MethodAccessor methodContainsValue = Accessors.getMethodAccessor(multimapClass, "containsValue", Object.class);
+			private final MethodAccessor methodEntries = 	     Accessors.getMethodAccessor(multimapClass, "entries");
+			private final MethodAccessor methodGet = 			 Accessors.getMethodAccessor(multimapClass, "get", Object.class);
+			private final MethodAccessor methodIsEmpty = 		 Accessors.getMethodAccessor(multimapClass, "isEmpty");
+			private final MethodAccessor methodKeySet = 		 Accessors.getMethodAccessor(multimapClass, "keySet");
+			private final MethodAccessor methodKeys = 		 Accessors.getMethodAccessor(multimapClass, "keys");
+			private final MethodAccessor methodPut = 			 Accessors.getMethodAccessor(multimapClass, "put", Object.class, Object.class);
+			private final MethodAccessor methodPutAll = 		 Accessors.getMethodAccessor(multimapClass, "putAll", Object.class, Iterable.class);
+			private final MethodAccessor methodRemove = 		 Accessors.getMethodAccessor(multimapClass, "remove", Object.class, Object.class);
+			private final MethodAccessor methodRemoveAll = 	 Accessors.getMethodAccessor(multimapClass, "removeAll", Object.class);
+			private final MethodAccessor methodReplaceValues = Accessors.getMethodAccessor(multimapClass, "replaceValues", Object.class, Iterable.class);
+			private final MethodAccessor methodSize = 		 Accessors.getMethodAccessor(multimapClass, "size");
+			private final MethodAccessor methodValues =		 Accessors.getMethodAccessor(multimapClass, "values");
 			
 			@SuppressWarnings("unchecked")
 			public Map<TKey, Collection<TValue>> asMap() {
@@ -148,27 +148,27 @@ class GuavaReflection {
 	
 	public static <TValue> Multiset<TValue> getBukkitMultiset(final Object multiset) {
 		return new Multiset<TValue>() {
-			private Class<?> multisetClass = multiset.getClass();
-			private MethodAccessor methodAddMany = 		 	Accessors.getMethodAccessor(multisetClass, "add", Object.class, int.class);
-			private MethodAccessor methodAddOne = 		 	Accessors.getMethodAccessor(multisetClass, "add", Object.class);
-			private MethodAccessor methodAddAll = 		 	Accessors.getMethodAccessor(multisetClass, "addAll", Collection.class);
-			private MethodAccessor methodClear = 	     	Accessors.getMethodAccessor(multisetClass, "clear");
-			private MethodAccessor methodContains  =     	Accessors.getMethodAccessor(multisetClass, "contains", Object.class);
-			private MethodAccessor methodContainsAll =   	Accessors.getMethodAccessor(multisetClass, "containsAll", Collection.class);
-			private MethodAccessor methodCount = 		 	Accessors.getMethodAccessor(multisetClass, "count", Object.class);
-			private MethodAccessor methodElementSet = 		Accessors.getMethodAccessor(multisetClass, "elementSet");
-			private MethodAccessor methodEntrySet = 		Accessors.getMethodAccessor(multisetClass, "entrySet");
-			private MethodAccessor methodIsEmpty = 		 	Accessors.getMethodAccessor(multisetClass, "isEmpty");
-			private MethodAccessor methodIterator = 	 	Accessors.getMethodAccessor(multisetClass, "iterator");
-			private MethodAccessor methodRemoveCount = 		Accessors.getMethodAccessor(multisetClass, "remove", Object.class, int.class);
-			private MethodAccessor methodRemoveOne = 		Accessors.getMethodAccessor(multisetClass, "remove", Object.class);
-			private MethodAccessor methodRemoveAll = 	 	Accessors.getMethodAccessor(multisetClass, "removeAll", Collection.class);
-			private MethodAccessor methodRetainAll = 	 	Accessors.getMethodAccessor(multisetClass, "retainAll", Collection.class);
-			private MethodAccessor methodSetCountOldNew = 	Accessors.getMethodAccessor(multisetClass, "setCount", Object.class, int.class, int.class);
-			private MethodAccessor methodSetCountNew = 	    Accessors.getMethodAccessor(multisetClass, "setCount", Object.class, int.class);
-			private MethodAccessor methodSize = 		 	Accessors.getMethodAccessor(multisetClass, "size");
-			private MethodAccessor methodToArray =		 	Accessors.getMethodAccessor(multisetClass, "toArray");
-			private MethodAccessor methodToArrayBuffer =	Accessors.getMethodAccessor(multisetClass, "toArray", Object[].class);
+			private final Class<?> multisetClass = multiset.getClass();
+			private final MethodAccessor methodAddMany = 		 	Accessors.getMethodAccessor(multisetClass, "add", Object.class, int.class);
+			private final MethodAccessor methodAddOne = 		 	Accessors.getMethodAccessor(multisetClass, "add", Object.class);
+			private final MethodAccessor methodAddAll = 		 	Accessors.getMethodAccessor(multisetClass, "addAll", Collection.class);
+			private final MethodAccessor methodClear = 	     	Accessors.getMethodAccessor(multisetClass, "clear");
+			private final MethodAccessor methodContains  =     	Accessors.getMethodAccessor(multisetClass, "contains", Object.class);
+			private final MethodAccessor methodContainsAll =   	Accessors.getMethodAccessor(multisetClass, "containsAll", Collection.class);
+			private final MethodAccessor methodCount = 		 	Accessors.getMethodAccessor(multisetClass, "count", Object.class);
+			private final MethodAccessor methodElementSet = 		Accessors.getMethodAccessor(multisetClass, "elementSet");
+			private final MethodAccessor methodEntrySet = 		Accessors.getMethodAccessor(multisetClass, "entrySet");
+			private final MethodAccessor methodIsEmpty = 		 	Accessors.getMethodAccessor(multisetClass, "isEmpty");
+			private final MethodAccessor methodIterator = 	 	Accessors.getMethodAccessor(multisetClass, "iterator");
+			private final MethodAccessor methodRemoveCount = 		Accessors.getMethodAccessor(multisetClass, "remove", Object.class, int.class);
+			private final MethodAccessor methodRemoveOne = 		Accessors.getMethodAccessor(multisetClass, "remove", Object.class);
+			private final MethodAccessor methodRemoveAll = 	 	Accessors.getMethodAccessor(multisetClass, "removeAll", Collection.class);
+			private final MethodAccessor methodRetainAll = 	 	Accessors.getMethodAccessor(multisetClass, "retainAll", Collection.class);
+			private final MethodAccessor methodSetCountOldNew = 	Accessors.getMethodAccessor(multisetClass, "setCount", Object.class, int.class, int.class);
+			private final MethodAccessor methodSetCountNew = 	    Accessors.getMethodAccessor(multisetClass, "setCount", Object.class, int.class);
+			private final MethodAccessor methodSize = 		 	Accessors.getMethodAccessor(multisetClass, "size");
+			private final MethodAccessor methodToArray =		 	Accessors.getMethodAccessor(multisetClass, "toArray");
+			private final MethodAccessor methodToArrayBuffer =	Accessors.getMethodAccessor(multisetClass, "toArray", Object[].class);
 			
 			public int add(TValue arg0, int arg1) {
 				return (Integer) methodAddMany.invoke(multiset, arg0, arg1);
@@ -286,10 +286,10 @@ class GuavaReflection {
 	
 	private static <TValue> Multiset.Entry<TValue> getBukkitEntry(final Object entry) {
 		return new Multiset.Entry<TValue>() {
-			private Class<?> entryClass = entry.getClass();
-			private MethodAccessor methodEquals = 		 	Accessors.getMethodAccessor(entryClass, "equals", Object.class);
-			private MethodAccessor methodGetCount = 		Accessors.getMethodAccessor(entryClass, "getCount");
-			private MethodAccessor methodGetElement =	 	Accessors.getMethodAccessor(entryClass, "getElement");
+			private final Class<?> entryClass = entry.getClass();
+			private final MethodAccessor methodEquals = 		 	Accessors.getMethodAccessor(entryClass, "equals", Object.class);
+			private final MethodAccessor methodGetCount = 		Accessors.getMethodAccessor(entryClass, "getCount");
+			private final MethodAccessor methodGetElement =	 	Accessors.getMethodAccessor(entryClass, "getElement");
 			
 			public boolean equals(Object arg0) {
 				return (Boolean) methodEquals.invoke(entry, arg0);

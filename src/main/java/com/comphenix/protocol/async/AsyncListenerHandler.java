@@ -17,13 +17,6 @@
 
 package com.comphenix.protocol.async;
 
-import java.util.HashSet;
-import java.util.Set;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.error.Report;
 import com.comphenix.protocol.error.ReportType;
@@ -36,8 +29,14 @@ import com.comphenix.protocol.timing.TimedListenerManager.ListenerType;
 import com.comphenix.protocol.timing.TimedTracker;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
-
 import org.bukkit.plugin.Plugin;
+
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Represents a handler for an asynchronous event.
@@ -77,14 +76,14 @@ public class AsyncListenerHandler {
 	private final AtomicInteger started = new AtomicInteger();
 	
 	// The packet listener
-	private PacketListener listener;
+	private final PacketListener listener;
 
 	// The filter manager
-	private AsyncFilterManager filterManager;
+	private final AsyncFilterManager filterManager;
 	private NullPacketListener nullPacketListener;
 	
 	// List of queued packets
-	private ArrayBlockingQueue<PacketEvent> queuedPackets = new ArrayBlockingQueue<PacketEvent>(DEFAULT_CAPACITY);
+	private final ArrayBlockingQueue<PacketEvent> queuedPackets = new ArrayBlockingQueue<PacketEvent>(DEFAULT_CAPACITY);
 	
 	// List of cancelled tasks
 	private final Set<Integer> stoppedTasks = new HashSet<Integer>();
@@ -94,13 +93,13 @@ public class AsyncListenerHandler {
 	private int syncTask = -1;
 	
 	// Minecraft main thread
-	private Thread mainThread;
+	private final Thread mainThread;
 	
 	// Warn plugins that the async listener handler must be started
 	private int warningTask;
 	
 	// Timing manager
-	private TimedListenerManager timedManager = TimedListenerManager.getInstance();
+	private final TimedListenerManager timedManager = TimedListenerManager.getInstance();
 	
 	/**
 	 * Construct a manager for an asynchronous packet handler.
@@ -654,7 +653,7 @@ public class AsyncListenerHandler {
 		
 		// Now, get the next non-cancelled listener
 		if (!marker.hasExpired()) {
-			for (; marker.getListenerTraversal().hasNext(); ) {
+			while (marker.getListenerTraversal().hasNext()) {
 				AsyncListenerHandler handler = marker.getListenerTraversal().next().getListener();
 				
 				if (!handler.isCancelled()) {

@@ -17,18 +17,6 @@
 
 package com.comphenix.protocol.reflect.compiler;
 
-import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryPoolMXBean;
-import java.lang.management.MemoryUsage;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
-
 import com.comphenix.protocol.error.ErrorReporter;
 import com.comphenix.protocol.error.Report;
 import com.comphenix.protocol.error.ReportType;
@@ -37,6 +25,13 @@ import com.comphenix.protocol.reflect.compiler.StructureCompiler.StructureKey;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryPoolMXBean;
+import java.lang.management.MemoryUsage;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.*;
 
 /**
  * Compiles structure modifiers on a background thread.
@@ -66,8 +61,8 @@ public class BackgroundCompiler {
 	private static BackgroundCompiler backgroundCompiler;
 	
 	// Classes we're currently compiling
-	private Map<StructureKey, List<CompileListener<?>>> listeners = Maps.newHashMap();
-	private Object listenerLock = new Object();
+	private final Map<StructureKey, List<CompileListener<?>>> listeners = Maps.newHashMap();
+	private final Object listenerLock = new Object();
 	
 	private StructureCompiler compiler;
 	private boolean enabled;

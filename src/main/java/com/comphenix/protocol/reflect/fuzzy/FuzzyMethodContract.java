@@ -1,16 +1,15 @@
 package com.comphenix.protocol.reflect.fuzzy;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.regex.Pattern;
-
-import javax.annotation.Nonnull;
-
 import com.comphenix.protocol.reflect.MethodInfo;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+
+import javax.annotation.Nonnull;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * Represents a contract for matching methods or constructors.
@@ -48,9 +47,7 @@ public class FuzzyMethodContract extends AbstractFuzzyMember<MethodInfo> {
 		
 		/**
 		 * See if there's a match for this matcher.
-		 * @param used - parameters that have been matched before.
 		 * @param parent - the container (member) that holds a reference to this parameter.
-		 * @param params - the type of each parameter.
 		 * @return TRUE if this matcher matches any of the given parameters, FALSE otherwise.
 		 */
 		public boolean isParameterMatch(Class<?> param, MethodInfo parent, int index) {

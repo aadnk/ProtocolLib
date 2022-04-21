@@ -17,14 +17,10 @@
 
 package com.comphenix.protocol.concurrency;
 
-import java.util.HashSet;
-import java.util.Map;
-import java.util.NavigableMap;
-import java.util.Set;
-import java.util.TreeMap;
-
 import com.google.common.base.Objects;
 import com.google.common.collect.Range;
+
+import java.util.*;
 
 /**
  * Represents a generic store of intervals and associated values. No two intervals
@@ -49,8 +45,8 @@ public abstract class AbstractIntervalTree<TKey extends Comparable<TKey>, TValue
 	 * Represents a range and a value in this interval tree.
 	 */
 	public class Entry implements Map.Entry<Range<TKey>, TValue> {
-		private EndPoint left;
-		private EndPoint right;
+		private final EndPoint left;
+		private final EndPoint right;
 
 		Entry(EndPoint left, EndPoint right) {
 			if (left == null)

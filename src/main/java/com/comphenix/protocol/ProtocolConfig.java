@@ -17,15 +17,14 @@ package com.comphenix.protocol;
 
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import com.google.common.io.Files;
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import org.bukkit.configuration.Configuration;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.plugin.Plugin;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
 
 /**
  * Represents the configuration of ProtocolLib.
@@ -58,7 +57,7 @@ public class ProtocolConfig {
 	// Defaults
 	private static final long DEFAULT_UPDATER_DELAY = 43200;
 
-	private Plugin plugin;
+	private final Plugin plugin;
 	private Configuration config;
 	private boolean loadingSections;
 

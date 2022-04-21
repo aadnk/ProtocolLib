@@ -17,12 +17,12 @@
 
 package com.comphenix.protocol.reflect;
 
-import java.lang.reflect.Field;
-
 import com.comphenix.protocol.ProtocolLogger;
 import com.comphenix.protocol.reflect.accessors.Accessors;
 import com.comphenix.protocol.reflect.accessors.FieldAccessor;
 import com.google.common.base.Objects;
+
+import java.lang.reflect.Field;
 
 /**
  * Represents a field that will revert to its original state when this class is garbaged collected.
@@ -30,8 +30,8 @@ import com.google.common.base.Objects;
  * @author Kristian
  */
 public class VolatileField {
-	private FieldAccessor accessor;
-	private Object container;
+	private final FieldAccessor accessor;
+	private final Object container;
 	
 	// The current and previous values
 	private Object previous;

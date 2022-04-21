@@ -9,7 +9,7 @@ import java.nio.ByteBuffer;
  * @author Kristian
  */
 public class ByteBufferInputStream extends InputStream {
-    private ByteBuffer buf;
+    private final ByteBuffer buf;
 
     public ByteBufferInputStream(ByteBuffer buf) {
         this.buf = buf;

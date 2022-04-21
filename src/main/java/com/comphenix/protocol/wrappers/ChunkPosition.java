@@ -17,15 +17,14 @@
 
 package com.comphenix.protocol.wrappers;
 
-import java.lang.reflect.Constructor;
-
-import org.bukkit.util.Vector;
-
 import com.comphenix.protocol.reflect.EquivalentConverter;
 import com.comphenix.protocol.reflect.FieldAccessException;
 import com.comphenix.protocol.reflect.StructureModifier;
 import com.comphenix.protocol.utility.MinecraftReflection;
 import com.google.common.base.Objects;
+import org.bukkit.util.Vector;
+
+import java.lang.reflect.Constructor;
 
 /**
  * Copies a immutable net.minecraft.server.ChunkPosition, which represents a integer 3D vector.
@@ -166,8 +165,7 @@ public class ChunkPosition {
 				
 				// Construct the underlying ChunkPosition
 				try {
-					Object result = chunkPositionConstructor.newInstance(specific.x, specific.y, specific.z);
-					return result;
+					return chunkPositionConstructor.newInstance(specific.x, specific.y, specific.z);
 				} catch (Exception e) {
 					throw new RuntimeException("Cannot construct ChunkPosition.", e);
 				}
@@ -187,8 +185,7 @@ public class ChunkPosition {
 					if (intModifier.size() >= 3) {
 						try {
 							StructureModifier<Integer> instance = intModifier.withTarget(generic);
-							ChunkPosition result = new ChunkPosition(instance.read(0), instance.read(1), instance.read(2));
-							return result;
+							return new ChunkPosition(instance.read(0), instance.read(1), instance.read(2));
 						} catch (FieldAccessException e) {
 							// This is an exeptional work-around, so we don't want to burden the caller with the messy details
 							throw new RuntimeException("Field access error.", e);

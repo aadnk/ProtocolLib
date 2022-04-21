@@ -17,12 +17,6 @@
 
 package com.comphenix.protocol.async;
 
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.PriorityQueue;
-import java.util.Queue;
-import java.util.concurrent.Semaphore;
-
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.concurrency.AbstractConcurrentListenerMultimap;
 import com.comphenix.protocol.error.Report;
@@ -30,6 +24,12 @@ import com.comphenix.protocol.error.ReportType;
 import com.comphenix.protocol.events.PacketEvent;
 import com.comphenix.protocol.injector.PrioritizedListener;
 import com.google.common.collect.MinMaxPriorityQueue;
+
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.PriorityQueue;
+import java.util.Queue;
+import java.util.concurrent.Semaphore;
 
 
 /**
@@ -58,13 +58,13 @@ class PacketProcessingQueue extends AbstractConcurrentListenerMultimap<AsyncList
 	 * Number of packets we're processing concurrently.
 	 */
 	private final int maximumConcurrency;
-	private Semaphore concurrentProcessing;
+	private final Semaphore concurrentProcessing;
 	
 	// Queued packets for being processed
 	private Queue<PacketEventHolder> processingQueue;
 	
 	// Packets for sending
-	private PlayerSendingHandler sendingHandler;
+	private final PlayerSendingHandler sendingHandler;
 	
 	public PacketProcessingQueue(PlayerSendingHandler sendingHandler) {
 		this(sendingHandler, INITIAL_CAPACITY, DEFAULT_QUEUE_LIMIT, DEFAULT_MAXIMUM_CONCURRENCY);

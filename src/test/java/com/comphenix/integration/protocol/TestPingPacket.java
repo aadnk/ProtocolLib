@@ -1,17 +1,14 @@
 package com.comphenix.integration.protocol;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
 import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.events.PacketAdapter;
 import com.comphenix.protocol.events.PacketEvent;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import org.bukkit.plugin.Plugin;
+
+import java.util.concurrent.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestPingPacket {
 

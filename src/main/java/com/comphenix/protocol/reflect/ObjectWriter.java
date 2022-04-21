@@ -17,13 +17,13 @@
 
 package com.comphenix.protocol.reflect;
 
+import com.comphenix.protocol.injector.StructureCache;
+import com.comphenix.protocol.utility.MinecraftReflection;
+
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-
-import com.comphenix.protocol.injector.StructureCache;
-import com.comphenix.protocol.utility.MinecraftReflection;
 
 /**
  * Can copy an object field by field.
@@ -33,7 +33,7 @@ import com.comphenix.protocol.utility.MinecraftReflection;
 public class ObjectWriter {
 	// Cache structure modifiers
 	@SuppressWarnings("rawtypes")
-	private static ConcurrentMap<Class, StructureModifier<Object>> cache =
+	private static final ConcurrentMap<Class, StructureModifier<Object>> cache =
 			new ConcurrentHashMap<Class, StructureModifier<Object>>();
 	
 	/**

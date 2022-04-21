@@ -30,7 +30,7 @@ import java.util.ListIterator;
  * @param <VOuter> - type of the items publically accessible in the outer list.
  */
 public abstract class ConvertedList<VInner, VOuter> extends ConvertedCollection<VInner, VOuter> implements List<VOuter> {
-	private List<VInner> inner;
+	private final List<VInner> inner;
 	
 	public ConvertedList(List<VInner> inner) {
 		super(inner);

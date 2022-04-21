@@ -17,9 +17,9 @@
 
 package com.comphenix.protocol.wrappers.collection;
 
-import javax.annotation.Nullable;
-
 import com.google.common.base.Function;
+
+import javax.annotation.Nullable;
 
 /**
  * Represents an object that transform elements of type VInner to type VOuter and back again.
@@ -31,7 +31,7 @@ import com.google.common.base.Function;
  */
 public abstract class AbstractConverted<VInner, VOuter> {
 	// Inner conversion
-	private Function<VOuter, VInner> innerConverter = new Function<VOuter, VInner>() {
+	private final Function<VOuter, VInner> innerConverter = new Function<VOuter, VInner>() {
 		@Override
 		public VInner apply(@Nullable VOuter param) {
 			return toInner(param);
@@ -39,7 +39,7 @@ public abstract class AbstractConverted<VInner, VOuter> {
 	};
 	
 	// Outer conversion
-	private Function<VInner, VOuter> outerConverter = new Function<VInner, VOuter>() {
+	private final Function<VInner, VOuter> outerConverter = new Function<VInner, VOuter>() {
 		@Override
 		public VOuter apply(@Nullable VInner param) {
 			return toOuter(param);

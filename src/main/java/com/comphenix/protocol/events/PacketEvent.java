@@ -29,14 +29,15 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
+import org.bukkit.event.Cancellable;
+
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.lang.ref.WeakReference;
 import java.util.EventObject;
-import org.bukkit.Bukkit;
-import org.bukkit.entity.Player;
-import org.bukkit.event.Cancellable;
 
 /**
  * Represents a packet sending or receiving event. Changes to the packet will be reflected in the final version to be
@@ -66,7 +67,7 @@ public class PacketEvent extends EventObject implements Cancellable {
 	private boolean asynchronous;
 	// Whether or not a packet event is read only
 	private boolean readOnly;
-	private boolean filtered;
+	private final boolean filtered;
 
 	/**
 	 * Use the static constructors to create instances of this event.

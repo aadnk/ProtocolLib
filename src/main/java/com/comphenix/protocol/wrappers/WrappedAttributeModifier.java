@@ -1,10 +1,5 @@
 package com.comphenix.protocol.wrappers;
 
-import java.lang.reflect.Constructor;
-import java.util.UUID;
-import java.util.function.Supplier;
-import javax.annotation.Nonnull;
-
 import com.comphenix.protocol.reflect.EquivalentConverter;
 import com.comphenix.protocol.reflect.FuzzyReflection;
 import com.comphenix.protocol.reflect.StructureModifier;
@@ -13,6 +8,11 @@ import com.comphenix.protocol.utility.MinecraftReflection;
 import com.comphenix.protocol.utility.MinecraftVersion;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+
+import javax.annotation.Nonnull;
+import java.lang.reflect.Constructor;
+import java.util.UUID;
+import java.util.function.Supplier;
 
 /**
  * Represents a wrapper around a AttributeModifier.
@@ -27,8 +27,8 @@ public class WrappedAttributeModifier extends AbstractWrapper {
 	private static final EquivalentConverter<Operation> OPERATION_CONVERTER;
 
 	private static class IndexedEnumConverter<T extends Enum<T>> implements EquivalentConverter<T> {
-		private Class<T> specificClass;
-		private Class<?> genericClass;
+		private final Class<T> specificClass;
+		private final Class<?> genericClass;
 
 		private IndexedEnumConverter(Class<T> specificClass, Class<?> genericClass) {
 			this.specificClass = specificClass;
@@ -102,7 +102,7 @@ public class WrappedAttributeModifier extends AbstractWrapper {
 		 */
 		ADD_PERCENTAGE(2);
 		
-		private int id;
+		private final int id;
 		
 		private Operation(int id) {
 			this.id = id;
@@ -182,8 +182,7 @@ public class WrappedAttributeModifier extends AbstractWrapper {
 
 		StructureModifier<String> stringMod = modifier.withType(String.class);
 		if (stringMod.size() == 0) {
-			Supplier<String> supplier = (Supplier<String>) modifier.withType(Supplier.class).read(0);
-			this.name = supplier;
+			this.name = (Supplier<String>) modifier.withType(Supplier.class).read(0);
 		} else {
 			this.name = () -> stringMod.read(0);
 		}

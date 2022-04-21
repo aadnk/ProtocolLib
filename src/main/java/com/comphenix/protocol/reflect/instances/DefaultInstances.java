@@ -51,7 +51,7 @@ public class DefaultInstances implements InstanceProvider {
 	/**
 	 * Ordered list of instance provider, from highest priority to lowest.
 	 */
-	private ImmutableList<InstanceProvider> registered;
+	private final ImmutableList<InstanceProvider> registered;
 	
 	/**
 	 * Whether or not the constructor must be non-null.

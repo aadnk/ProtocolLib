@@ -1,19 +1,5 @@
 package com.comphenix.protocol.wrappers;
 
-import java.awt.image.BufferedImage;
-import java.awt.image.RenderedImage;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.List;
-
-import javax.imageio.ImageIO;
-
-import org.bukkit.Bukkit;
-import org.bukkit.Server;
-import org.bukkit.entity.Player;
-
 import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.injector.BukkitUnwrapper;
 import com.comphenix.protocol.reflect.EquivalentConverter;
@@ -31,55 +17,66 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.io.ByteStreams;
-
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.base64.Base64;
+import org.bukkit.Bukkit;
+import org.bukkit.Server;
+import org.bukkit.entity.Player;
+
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.awt.image.RenderedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.List;
 
 /**
  * Represents a server ping packet data.
  * @author Kristian
  */
 public class WrappedServerPing extends AbstractWrapper implements ClonableWrapper {
-	private static Class<?> GAME_PROFILE = MinecraftReflection.getGameProfileClass();
-	private static Class<?> GAME_PROFILE_ARRAY = MinecraftReflection.getArrayClass(GAME_PROFILE);
+	private static final Class<?> GAME_PROFILE = MinecraftReflection.getGameProfileClass();
+	private static final Class<?> GAME_PROFILE_ARRAY = MinecraftReflection.getArrayClass(GAME_PROFILE);
 
 	// Server ping fields
-	private static Class<?> SERVER_PING = MinecraftReflection.getServerPingClass();
-	private static ConstructorAccessor SERVER_PING_CONSTRUCTOR = Accessors.getConstructorAccessor(SERVER_PING);
-	private static FieldAccessor DESCRIPTION = Accessors.getFieldAccessor(SERVER_PING, MinecraftReflection.getIChatBaseComponentClass(), true);
-	private static FieldAccessor PLAYERS = Accessors.getFieldAccessor(SERVER_PING, MinecraftReflection.getServerPingPlayerSampleClass(), true);
-	private static FieldAccessor VERSION = Accessors.getFieldAccessor(SERVER_PING, MinecraftReflection.getServerPingServerDataClass(), true);
-	private static FieldAccessor FAVICON = Accessors.getFieldAccessor(SERVER_PING, String.class, true);
+	private static final Class<?> SERVER_PING = MinecraftReflection.getServerPingClass();
+	private static final ConstructorAccessor SERVER_PING_CONSTRUCTOR = Accessors.getConstructorAccessor(SERVER_PING);
+	private static final FieldAccessor DESCRIPTION = Accessors.getFieldAccessor(SERVER_PING, MinecraftReflection.getIChatBaseComponentClass(), true);
+	private static final FieldAccessor PLAYERS = Accessors.getFieldAccessor(SERVER_PING, MinecraftReflection.getServerPingPlayerSampleClass(), true);
+	private static final FieldAccessor VERSION = Accessors.getFieldAccessor(SERVER_PING, MinecraftReflection.getServerPingServerDataClass(), true);
+	private static final FieldAccessor FAVICON = Accessors.getFieldAccessor(SERVER_PING, String.class, true);
 
 	// For converting to the underlying array
-	private static EquivalentConverter<Iterable<? extends WrappedGameProfile>> PROFILE_CONVERT =
+	private static final EquivalentConverter<Iterable<? extends WrappedGameProfile>> PROFILE_CONVERT =
 		BukkitConverters.getArrayConverter(GAME_PROFILE, BukkitConverters.getWrappedGameProfileConverter());
 
 	// Server ping player sample fields
-	private static Class<?> PLAYERS_CLASS = MinecraftReflection.getServerPingPlayerSampleClass();
-	private static ConstructorAccessor PLAYERS_CONSTRUCTOR = Accessors.getConstructorAccessor(PLAYERS_CLASS, int.class, int.class);
-	private static FieldAccessor[] PLAYERS_INTS = Accessors.getFieldAccessorArray(PLAYERS_CLASS, int.class, true);
-	private static FieldAccessor PLAYERS_PROFILES = Accessors.getFieldAccessor(PLAYERS_CLASS, GAME_PROFILE_ARRAY, true);
-	private static FieldAccessor PLAYERS_MAXIMUM = PLAYERS_INTS[0];
-	private static FieldAccessor PLAYERS_ONLINE = PLAYERS_INTS[1];
+	private static final Class<?> PLAYERS_CLASS = MinecraftReflection.getServerPingPlayerSampleClass();
+	private static final ConstructorAccessor PLAYERS_CONSTRUCTOR = Accessors.getConstructorAccessor(PLAYERS_CLASS, int.class, int.class);
+	private static final FieldAccessor[] PLAYERS_INTS = Accessors.getFieldAccessorArray(PLAYERS_CLASS, int.class, true);
+	private static final FieldAccessor PLAYERS_PROFILES = Accessors.getFieldAccessor(PLAYERS_CLASS, GAME_PROFILE_ARRAY, true);
+	private static final FieldAccessor PLAYERS_MAXIMUM = PLAYERS_INTS[0];
+	private static final FieldAccessor PLAYERS_ONLINE = PLAYERS_INTS[1];
 
 	// Server ping serialization
-	private static Class<?> GSON_CLASS = MinecraftReflection.getMinecraftGsonClass();
-	private static MethodAccessor GSON_TO_JSON = Accessors.getMethodAccessor(GSON_CLASS, "toJson", Object.class);
-	private static MethodAccessor GSON_FROM_JSON = Accessors.getMethodAccessor(GSON_CLASS, "fromJson", String.class, Class.class);
-	private static FieldAccessor PING_GSON = Accessors.getCached(Accessors.getFieldAccessor(
+	private static final Class<?> GSON_CLASS = MinecraftReflection.getMinecraftGsonClass();
+	private static final MethodAccessor GSON_TO_JSON = Accessors.getMethodAccessor(GSON_CLASS, "toJson", Object.class);
+	private static final MethodAccessor GSON_FROM_JSON = Accessors.getMethodAccessor(GSON_CLASS, "fromJson", String.class, Class.class);
+	private static final FieldAccessor PING_GSON = Accessors.getCached(Accessors.getFieldAccessor(
 		PacketType.Status.Server.SERVER_INFO.getPacketClass(), GSON_CLASS, true
 	));
 
 	// Server data fields
-	private static Class<?> VERSION_CLASS = MinecraftReflection.getServerPingServerDataClass();
-	private static ConstructorAccessor VERSION_CONSTRUCTOR = Accessors.getConstructorAccessor(VERSION_CLASS, String.class, int.class);
-	private static FieldAccessor VERSION_NAME = Accessors.getFieldAccessor(VERSION_CLASS, String.class, true);
-	private static FieldAccessor VERSION_PROTOCOL = Accessors.getFieldAccessor(VERSION_CLASS, int.class, true);
+	private static final Class<?> VERSION_CLASS = MinecraftReflection.getServerPingServerDataClass();
+	private static final ConstructorAccessor VERSION_CONSTRUCTOR = Accessors.getConstructorAccessor(VERSION_CLASS, String.class, int.class);
+	private static final FieldAccessor VERSION_NAME = Accessors.getFieldAccessor(VERSION_CLASS, String.class, true);
+	private static final FieldAccessor VERSION_PROTOCOL = Accessors.getFieldAccessor(VERSION_CLASS, int.class, true);
 
 	// Get profile from player
-	private static FieldAccessor ENTITY_HUMAN_PROFILE = Accessors.getFieldAccessor(
+	private static final FieldAccessor ENTITY_HUMAN_PROFILE = Accessors.getFieldAccessor(
 			MinecraftReflection.getEntityPlayerClass().getSuperclass(), GAME_PROFILE, true);
 
 	// Inner class

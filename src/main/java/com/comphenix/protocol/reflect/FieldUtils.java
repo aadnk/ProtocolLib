@@ -18,6 +18,7 @@ package com.comphenix.protocol.reflect;
  */
 
 import com.comphenix.protocol.reflect.accessors.Accessors;
+
 import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.Field;
 import java.lang.reflect.Member;
@@ -162,16 +163,16 @@ public class FieldUtils {
         while (cls != null) {
             Class[] interfaces = cls.getInterfaces();
             for (int i = 0; i < interfaces.length; i++) {
-                if (list.contains(interfaces[i]) == false) {
+                if (!list.contains(interfaces[i])) {
                     list.add(interfaces[i]);
                 }
                 List superInterfaces = getAllInterfaces(interfaces[i]);
-                for (Iterator it = superInterfaces.iterator(); it.hasNext();) {
-                    Class intface = (Class) it.next();
-                    if (list.contains(intface) == false) {
-                        list.add(intface);
-                    }
-                }
+				for (Object superInterface : superInterfaces) {
+					Class intface = (Class) superInterface;
+					if (!list.contains(intface)) {
+						list.add(intface);
+					}
+				}
             }
             cls = cls.getSuperclass();
         }

@@ -1,21 +1,20 @@
 package com.comphenix.protocol.wrappers;
 
-import java.lang.reflect.Field;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-
 import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.PacketType.Protocol;
 import com.comphenix.protocol.ProtocolLogger;
 import com.comphenix.protocol.reflect.EquivalentConverter;
 import com.comphenix.protocol.reflect.FuzzyReflection;
 import com.comphenix.protocol.reflect.accessors.Accessors;
-import com.comphenix.protocol.utility.MinecraftVersion;
 import com.comphenix.protocol.utility.MinecraftReflection;
+import com.comphenix.protocol.utility.MinecraftVersion;
 import com.google.common.collect.Maps;
-
 import org.apache.commons.lang.Validate;
 import org.bukkit.GameMode;
+
+import java.lang.reflect.Field;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Represents a generic enum converter.
@@ -159,7 +158,7 @@ public abstract class EnumWrappers {
 		RELEASE_USE_ITEM,
 		SWAP_HELD_ITEMS("SWAP_ITEM_WITH_OFFHAND");
 
-		String[] aliases;
+		final String[] aliases;
 		PlayerDigType(String... aliases) {
 			this.aliases = aliases;
 		}
@@ -180,7 +179,7 @@ public abstract class EnumWrappers {
 		OPEN_INVENTORY,
 		START_FALL_FLYING;
 
-		String[] aliases;
+		final String[] aliases;
 		PlayerAction(String... aliases) {
 			this.aliases = aliases;
 		}
@@ -457,8 +456,8 @@ public abstract class EnumWrappers {
 	private static Class<?> ENTITY_POSE_CLASS = null;
 
 	private static boolean INITIALIZED = false;
-	private static Map<Class<?>, EquivalentConverter<?>> FROM_NATIVE = Maps.newHashMap();
-	private static Map<Class<?>, EquivalentConverter<?>> FROM_WRAPPER = Maps.newHashMap();
+	private static final Map<Class<?>, EquivalentConverter<?>> FROM_NATIVE = Maps.newHashMap();
+	private static final Map<Class<?>, EquivalentConverter<?>> FROM_WRAPPER = Maps.newHashMap();
 	static Set<String> INVALID = new HashSet<>();
 
 	/**
@@ -826,11 +825,11 @@ public abstract class EnumWrappers {
 	 * Enums whose name has changed across NMS versions. Enums using this must also implement {@link AliasedEnum}
 	 */
 	public static class AliasedEnumConverter<T extends Enum<T> & AliasedEnum> implements EquivalentConverter<T> {
-		private Class<?> genericType;
-		private Class<T> specificType;
+		private final Class<?> genericType;
+		private final Class<T> specificType;
 
-		private Map<T, Object> genericMap = new ConcurrentHashMap<>();
-		private Map<Object, T> specificMap = new ConcurrentHashMap<>();
+		private final Map<T, Object> genericMap = new ConcurrentHashMap<>();
+		private final Map<Object, T> specificMap = new ConcurrentHashMap<>();
 
 		public AliasedEnumConverter(Class<?> genericType, Class<T> specificType) {
 			this.genericType = genericType;
@@ -942,8 +941,8 @@ public abstract class EnumWrappers {
 	}
 
 	public static class IndexedEnumConverter<T extends Enum<T>> implements EquivalentConverter<T> {
-		private Class<T> specificClass;
-		private Class<?> genericClass;
+		private final Class<T> specificClass;
+		private final Class<?> genericClass;
 
 		public IndexedEnumConverter(Class<T> specificClass, Class<?> genericClass) {
 			this.specificClass = specificClass;
