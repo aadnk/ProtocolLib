@@ -17,16 +17,17 @@
 
 package com.comphenix.protocol.injector;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-
 import com.comphenix.protocol.concurrency.SortedCopyOnWriteArray;
 import com.comphenix.protocol.events.ListenerPriority;
 import com.google.common.primitives.Ints;
+import org.junit.jupiter.api.Test;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 public class SortedCopyOnWriteArrayTest {
 

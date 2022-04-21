@@ -1,15 +1,14 @@
 package com.comphenix.protocol.wrappers;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-
-import javax.annotation.Nonnull;
-
 import com.comphenix.protocol.reflect.FuzzyReflection;
 import com.comphenix.protocol.reflect.fuzzy.FuzzyMethodContract;
 import com.comphenix.protocol.utility.MinecraftReflection;
 import com.google.common.base.Preconditions;
+
+import javax.annotation.Nonnull;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 
 /**
  * Represents a wrapper for the internal IntHashMap in Minecraft.
@@ -165,7 +164,7 @@ public class WrappedIntHashMap extends AbstractWrapper {
 					// See if we found the method we are looking for
 					if (first && !second) {
 						REMOVE_METHOD = method;
-					} else if (first && second) {
+					} else if (first) {
 						GET_METHOD = method;
 					}
 				} catch (Exception e) {

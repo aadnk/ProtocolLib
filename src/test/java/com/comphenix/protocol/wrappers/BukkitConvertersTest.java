@@ -1,8 +1,5 @@
 package com.comphenix.protocol.wrappers;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import com.comphenix.protocol.BukkitInitialization;
 import com.comphenix.protocol.reflect.EquivalentConverter;
 import org.bukkit.Bukkit;
@@ -13,6 +10,9 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class BukkitConvertersTest {
 

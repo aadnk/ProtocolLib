@@ -44,7 +44,7 @@ class BoxingHelper {
 	private final static MethodDescriptor LONG_VALUE = MethodDescriptor.getMethod("long longValue()");
 	private final static MethodDescriptor DOUBLE_VALUE = MethodDescriptor.getMethod("double doubleValue()");
 
-	private MethodVisitor mv;
+	private final MethodVisitor mv;
 	
 	public BoxingHelper(MethodVisitor mv) {
 		this.mv = mv;
@@ -169,7 +169,7 @@ class BoxingHelper {
 		} else if (value >= Short.MIN_VALUE && value <= Short.MAX_VALUE) {
 			mv.visitIntInsn(Opcodes.SIPUSH, value);
 		} else {
-			mv.visitLdcInsn(new Integer(value));
+			mv.visitLdcInsn(value);
 		}
 	}
 

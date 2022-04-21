@@ -17,8 +17,6 @@
 
 package com.comphenix.protocol.injector;
 
-import java.util.Collection;
-
 import com.comphenix.protocol.concurrency.AbstractConcurrentListenerMultimap;
 import com.comphenix.protocol.error.ErrorReporter;
 import com.comphenix.protocol.events.ListenerPriority;
@@ -28,6 +26,8 @@ import com.comphenix.protocol.timing.TimedListenerManager;
 import com.comphenix.protocol.timing.TimedListenerManager.ListenerType;
 import com.comphenix.protocol.timing.TimedTracker;
 
+import java.util.Collection;
+
 /**
  * Registry of synchronous packet listeners.
  * 
@@ -35,7 +35,7 @@ import com.comphenix.protocol.timing.TimedTracker;
  */
 public final class SortedPacketListenerList extends AbstractConcurrentListenerMultimap<PacketListener> {
 	// The current listener manager
-	private TimedListenerManager timedManager = TimedListenerManager.getInstance();
+	private final TimedListenerManager timedManager = TimedListenerManager.getInstance();
 	
 	public SortedPacketListenerList() {
 		super();
@@ -108,7 +108,7 @@ public final class SortedPacketListenerList extends AbstractConcurrentListenerMu
 	 * @param event - the related packet event.
 	 * @param element - the listener to invoke.
 	 */
-	private final void invokeReceivingListener(ErrorReporter reporter, PacketEvent event, PrioritizedListener<PacketListener> element) {
+	private void invokeReceivingListener(ErrorReporter reporter, PacketEvent event, PrioritizedListener<PacketListener> element) {
 		try {
 			event.setReadOnly(element.getPriority() == ListenerPriority.MONITOR);
 			element.getListener().onPacketReceiving(event);
@@ -189,7 +189,7 @@ public final class SortedPacketListenerList extends AbstractConcurrentListenerMu
 	 * @param event - the related packet event.
 	 * @param element - the listener to invoke.
 	 */
-	private final void invokeSendingListener(ErrorReporter reporter, PacketEvent event, PrioritizedListener<PacketListener> element) {
+	private void invokeSendingListener(ErrorReporter reporter, PacketEvent event, PrioritizedListener<PacketListener> element) {
 		try {
 			event.setReadOnly(element.getPriority() == ListenerPriority.MONITOR);
 			element.getListener().onPacketSending(event);

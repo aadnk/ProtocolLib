@@ -1,11 +1,12 @@
 package com.comphenix.protocol.utility;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-
 import com.comphenix.protocol.BukkitInitialization;
-import java.lang.reflect.Field;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+
+import java.lang.reflect.Field;
+
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class MinecraftMethodsTest {
 

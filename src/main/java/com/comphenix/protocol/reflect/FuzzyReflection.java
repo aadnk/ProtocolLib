@@ -17,23 +17,17 @@
 
 package com.comphenix.protocol.reflect;
 
-import java.lang.reflect.*;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.regex.Pattern;
-
-import org.apache.commons.lang.Validate;
-
 import com.comphenix.protocol.reflect.accessors.Accessors;
 import com.comphenix.protocol.reflect.fuzzy.AbstractFuzzyMatcher;
 import com.comphenix.protocol.reflect.fuzzy.FuzzyMethodContract;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import org.apache.commons.lang.Validate;
+
+import java.lang.reflect.*;
+import java.util.*;
+import java.util.regex.Pattern;
 
 /**
  * Retrieves fields and methods by signature, not just name.
@@ -42,7 +36,7 @@ import com.google.common.collect.Sets;
  */
 public class FuzzyReflection {
 	// The class we're actually representing
-	private Class<?> source;
+	private final Class<?> source;
 
 	// Whether or not to lookup private members
 	private boolean forceAccess;
@@ -662,9 +656,7 @@ public class FuzzyReflection {
 		Set<T> result = new LinkedHashSet<T>();
 		
 		for (T[] elements : array) {
-			for (T element : elements) {
-				result.add(element);
-			}
+			Collections.addAll(result, elements);
 		}
 		return result;
 	}

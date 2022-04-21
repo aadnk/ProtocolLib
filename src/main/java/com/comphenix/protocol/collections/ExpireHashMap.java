@@ -1,19 +1,15 @@
 package com.comphenix.protocol.collections;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.PriorityQueue;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
-
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Ticker;
 import com.google.common.collect.Maps;
 import com.google.common.primitives.Longs;
+
+import java.util.*;
+import java.util.Map.Entry;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Represents a hash map where each association may expire after a given time has elapsed.
@@ -49,11 +45,11 @@ public class ExpireHashMap<K, V> {
 		}
 	}
 	
-	private Map<K, ExpireEntry> keyLookup = new HashMap<K, ExpireEntry>();
-	private PriorityQueue<ExpireEntry> expireQueue =  new PriorityQueue<ExpireEntry>();
+	private final Map<K, ExpireEntry> keyLookup = new HashMap<K, ExpireEntry>();
+	private final PriorityQueue<ExpireEntry> expireQueue =  new PriorityQueue<ExpireEntry>();
 	
 	// View of keyLookup with direct values
-	private Map<K, V> valueView = Maps.transformValues(keyLookup, new Function<ExpireEntry, V>() {
+	private final Map<K, V> valueView = Maps.transformValues(keyLookup, new Function<ExpireEntry, V>() {
 		@Override
 		public V apply(ExpireEntry entry) {
 			return entry.expireValue;
@@ -61,7 +57,7 @@ public class ExpireHashMap<K, V> {
 	});
 	
 	// Supplied by the constructor
-	private Ticker ticker;
+	private final Ticker ticker;
 	
 	/**
 	 * Construct a new hash map where each entry may expire at a given time.

@@ -17,21 +17,17 @@
 
 package com.comphenix.protocol.wrappers.nbt;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
 import com.comphenix.protocol.BukkitInitialization;
 import com.comphenix.protocol.utility.MinecraftReflection;
 import com.comphenix.protocol.wrappers.nbt.io.NbtBinarySerializer;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.DataInput;
-import java.io.DataInputStream;
-import java.io.DataOutput;
-import java.io.DataOutputStream;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+
+import java.io.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class NbtFactoryTest {
 

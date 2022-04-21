@@ -17,6 +17,19 @@
 
 package com.comphenix.protocol.error;
 
+import com.comphenix.protocol.ProtocolLibrary;
+import com.comphenix.protocol.ProtocolLogger;
+import com.comphenix.protocol.collections.ExpireHashMap;
+import com.comphenix.protocol.error.Report.ReportBuilder;
+import com.comphenix.protocol.events.PacketAdapter;
+import com.comphenix.protocol.reflect.PrettyPrinter;
+import com.google.common.base.Preconditions;
+import com.google.common.primitives.Primitives;
+import org.apache.commons.lang.builder.ToStringBuilder;
+import org.apache.commons.lang.builder.ToStringStyle;
+import org.bukkit.Bukkit;
+import org.bukkit.plugin.Plugin;
+
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.ref.WeakReference;
@@ -29,19 +42,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import org.apache.commons.lang.builder.ToStringBuilder;
-import org.apache.commons.lang.builder.ToStringStyle;
-import org.bukkit.Bukkit;
-import org.bukkit.plugin.Plugin;
-
-import com.comphenix.protocol.ProtocolLogger;
-import com.comphenix.protocol.collections.ExpireHashMap;
-import com.comphenix.protocol.error.Report.ReportBuilder;
-import com.comphenix.protocol.events.PacketAdapter;
-import com.comphenix.protocol.reflect.PrettyPrinter;
-import com.google.common.base.Preconditions;
-import com.google.common.primitives.Primitives;
 
 /**
  * Internal class used to handle exceptions.
@@ -65,7 +65,7 @@ public class DetailedErrorReporter implements ErrorReporter {
 	public static final int DEFAULT_MAX_ERROR_COUNT = 20;
 	
 	// Prevent spam per plugin too
-	private ConcurrentMap<String, AtomicInteger> warningCount = new ConcurrentHashMap<String, AtomicInteger>();
+	private final ConcurrentMap<String, AtomicInteger> warningCount = new ConcurrentHashMap<String, AtomicInteger>();
 	
 	protected String prefix;
 	protected String supportURL;
@@ -88,8 +88,8 @@ public class DetailedErrorReporter implements ErrorReporter {
 	protected Map<String, Object> globalParameters = new HashMap<String, Object>();
 	
 	// Reports to ignore
-	private ExpireHashMap<Report, Boolean> rateLimited = new ExpireHashMap<Report, Boolean>();
-	private Object rateLock = new Object();
+	private final ExpireHashMap<Report, Boolean> rateLimited = new ExpireHashMap<Report, Boolean>();
+	private final Object rateLock = new Object();
 	
 	/**
 	 * Create a default error reporting system.
@@ -202,14 +202,14 @@ public class DetailedErrorReporter implements ErrorReporter {
 		
 		// See if we should print the full error
 		if (errorCount < getMaxErrorCount()) {
-			logger.log(Level.SEVERE, "[" + pluginName + "] Unhandled exception occured in " +
+			logger.log(Level.SEVERE, "[" + pluginName + "] Unhandled exception occurred in " +
 					 methodName + " for " + pluginName, error);
 			return true;
 			
 		} else {
-			// Nope - only print the error count occationally
+			// Nope - only print the error count occasionally
 			if (isPowerOfTwo(errorCount)) {
-				logger.log(Level.SEVERE, "[" + pluginName + "] Unhandled exception number " + errorCount + " occured in " +
+				logger.log(Level.SEVERE, "[" + pluginName + "] Unhandled exception number " + errorCount + " occurred in " +
 						 methodName + " for " + pluginName, error);
 			}
 			return false;
@@ -390,9 +390,9 @@ public class DetailedErrorReporter implements ErrorReporter {
 			writer.println(addPrefix(Bukkit.getServer().getVersion(), SECOND_LEVEL_PREFIX));
 
 			// Inform of this occurrence
-			if (ERROR_PERMISSION != null) {
+			if (ERROR_PERMISSION != null && ProtocolLibrary.getConfig().isChatWarnings()) {
 				Bukkit.getServer().broadcast(
-						String.format("Error %s (%s) occured in %s.", report.getReportMessage(), report.getException(), sender),
+						String.format("Error %s (%s) occurred in %s.", report.getReportMessage(), report.getException(), sender),
 						ERROR_PERMISSION
 				);
 			}

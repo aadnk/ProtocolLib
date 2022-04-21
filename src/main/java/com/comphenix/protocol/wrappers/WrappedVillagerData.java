@@ -34,7 +34,7 @@ public class WrappedVillagerData extends AbstractWrapper implements ClonableWrap
         TOOLSMITH, WEAPONSMITH
     }
 
-    private StructureModifier<Object> modifier;
+    private final StructureModifier<Object> modifier;
 
     private WrappedVillagerData(Object handle) {
         super(NMS_CLASS);

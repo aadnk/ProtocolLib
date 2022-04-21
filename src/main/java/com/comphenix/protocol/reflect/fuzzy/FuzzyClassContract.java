@@ -1,18 +1,14 @@
 package com.comphenix.protocol.reflect.fuzzy;
 
-import java.lang.reflect.Field;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-
 import com.comphenix.protocol.reflect.FuzzyReflection;
 import com.comphenix.protocol.reflect.MethodInfo;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+
+import java.lang.reflect.Field;
+import java.util.*;
 
 /**
  * Determine if a given class implements a given fuzzy (duck typed) contract.
@@ -33,12 +29,12 @@ public class FuzzyClassContract extends AbstractFuzzyMatcher<Class<?>> {
 	 *
 	 */
 	public static class Builder {
-		private List<AbstractFuzzyMatcher<Field>> fieldContracts = Lists.newArrayList();
-		private List<AbstractFuzzyMatcher<MethodInfo>> methodContracts = Lists.newArrayList();
-		private List<AbstractFuzzyMatcher<MethodInfo>> constructorContracts = Lists.newArrayList();
+		private final List<AbstractFuzzyMatcher<Field>> fieldContracts = Lists.newArrayList();
+		private final List<AbstractFuzzyMatcher<MethodInfo>> methodContracts = Lists.newArrayList();
+		private final List<AbstractFuzzyMatcher<MethodInfo>> constructorContracts = Lists.newArrayList();
 		
-		private List<AbstractFuzzyMatcher<Class<?>>> baseclassContracts = Lists.newArrayList();
-		private List<AbstractFuzzyMatcher<Class<?>>> interfaceContracts = Lists.newArrayList();
+		private final List<AbstractFuzzyMatcher<Class<?>>> baseclassContracts = Lists.newArrayList();
+		private final List<AbstractFuzzyMatcher<Class<?>>> interfaceContracts = Lists.newArrayList();
 		
 		/**
 		 * Add a new field contract.

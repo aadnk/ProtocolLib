@@ -18,7 +18,7 @@ import java.util.List;
  * @author Kristian
  */
 public class ChunkCoordIntPair {
-	private static Class<?> COORD_PAIR_CLASS = MinecraftReflection.getChunkCoordIntPair();
+	private static final Class<?> COORD_PAIR_CLASS = MinecraftReflection.getChunkCoordIntPair();
 	private static ConstructorAccessor COORD_CONSTRUCTOR;
 	private static FieldAccessor COORD_X;
 	private static FieldAccessor COORD_Z;

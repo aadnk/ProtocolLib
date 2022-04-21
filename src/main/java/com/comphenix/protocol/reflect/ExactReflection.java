@@ -1,18 +1,17 @@
 package com.comphenix.protocol.reflect;
 
+import com.google.common.base.Preconditions;
+
+import javax.annotation.Nonnull;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 
-import javax.annotation.Nonnull;
-
-import com.google.common.base.Preconditions;
-
 public class ExactReflection {
 	// The class we're actually representing
-	private Class<?> source;
-	private boolean forceAccess;
+	private final Class<?> source;
+	private final boolean forceAccess;
 
 	private ExactReflection(Class<?> source, boolean forceAccess) {
 		this.source = Preconditions.checkNotNull(source, "source class cannot be NULL");

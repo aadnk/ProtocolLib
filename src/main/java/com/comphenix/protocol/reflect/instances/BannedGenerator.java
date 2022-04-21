@@ -1,9 +1,9 @@
 package com.comphenix.protocol.reflect.instances;
 
-import javax.annotation.Nullable;
-
 import com.comphenix.protocol.reflect.fuzzy.AbstractFuzzyMatcher;
 import com.comphenix.protocol.reflect.fuzzy.FuzzyMatchers;
+
+import javax.annotation.Nullable;
 
 /**
  * Generator that ensures certain types will never be created.
@@ -11,7 +11,7 @@ import com.comphenix.protocol.reflect.fuzzy.FuzzyMatchers;
  * @author Kristian
  */
 public class BannedGenerator implements InstanceProvider {
-	private AbstractFuzzyMatcher<Class<?>> classMatcher;
+	private final AbstractFuzzyMatcher<Class<?>> classMatcher;
 	
 	/**
 	 * Construct a generator that ensures any class that matches the given matcher is never constructed.

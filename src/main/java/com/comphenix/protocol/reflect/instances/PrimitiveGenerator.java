@@ -17,12 +17,11 @@
 
 package com.comphenix.protocol.reflect.instances;
 
-import java.lang.reflect.Array;
-
-import javax.annotation.Nullable;
-
 import com.google.common.base.Defaults;
 import com.google.common.primitives.Primitives;
+
+import javax.annotation.Nullable;
+import java.lang.reflect.Array;
 
 /**
  * Provides constructors for primtive types, wrappers, arrays and strings.
@@ -41,7 +40,7 @@ public class PrimitiveGenerator implements InstanceProvider {
 	public static PrimitiveGenerator INSTANCE = new PrimitiveGenerator(STRING_DEFAULT);
 
 	// Our default string value
-	private String stringDefault;
+	private final String stringDefault;
 	
 	public PrimitiveGenerator(String stringDefault) {
 		this.stringDefault = stringDefault;

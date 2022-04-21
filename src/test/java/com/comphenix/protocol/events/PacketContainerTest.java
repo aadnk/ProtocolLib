@@ -15,52 +15,21 @@
  */
 package com.comphenix.protocol.events;
 
-import static com.comphenix.protocol.utility.TestUtils.assertItemCollectionsEqual;
-import static com.comphenix.protocol.utility.TestUtils.assertItemsEqual;
-import static com.comphenix.protocol.utility.TestUtils.equivalentItem;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import com.comphenix.protocol.BukkitInitialization;
 import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.injector.PacketConstructor;
 import com.comphenix.protocol.reflect.EquivalentConverter;
 import com.comphenix.protocol.reflect.StructureModifier;
 import com.comphenix.protocol.utility.MinecraftReflection;
-import com.comphenix.protocol.utility.Util;
-import com.comphenix.protocol.wrappers.BlockPosition;
-import com.comphenix.protocol.wrappers.BukkitConverters;
-import com.comphenix.protocol.wrappers.ComponentConverter;
-import com.comphenix.protocol.wrappers.EnumWrappers;
+import com.comphenix.protocol.wrappers.*;
 import com.comphenix.protocol.wrappers.EnumWrappers.EntityUseAction;
 import com.comphenix.protocol.wrappers.EnumWrappers.Hand;
 import com.comphenix.protocol.wrappers.EnumWrappers.SoundCategory;
-import com.comphenix.protocol.wrappers.MovingObjectPositionBlock;
-import com.comphenix.protocol.wrappers.Pair;
-import com.comphenix.protocol.wrappers.WrappedBlockData;
-import com.comphenix.protocol.wrappers.WrappedChatComponent;
-import com.comphenix.protocol.wrappers.WrappedDataWatcher;
 import com.comphenix.protocol.wrappers.WrappedDataWatcher.Registry;
 import com.comphenix.protocol.wrappers.WrappedDataWatcher.WrappedDataWatcherObject;
-import com.comphenix.protocol.wrappers.WrappedEnumEntityUseAction;
-import com.comphenix.protocol.wrappers.WrappedGameProfile;
-import com.comphenix.protocol.wrappers.WrappedWatchableObject;
 import com.comphenix.protocol.wrappers.nbt.NbtCompound;
 import com.comphenix.protocol.wrappers.nbt.NbtFactory;
 import com.google.common.collect.Lists;
-import java.lang.reflect.Array;
-import java.lang.reflect.Field;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.UUID;
 import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.ComponentBuilder;
@@ -91,6 +60,13 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.util.Vector;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+
+import java.lang.reflect.Array;
+import java.lang.reflect.Field;
+import java.util.*;
+
+import static com.comphenix.protocol.utility.TestUtils.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 // Ensure that the CraftItemFactory is mockable
 public class PacketContainerTest {
@@ -234,7 +210,7 @@ public class PacketContainerTest {
 		ItemStack item = new ItemStack(Material.GREEN_WOOL, 1);
 		ItemMeta meta = item.getItemMeta();
 		meta.setDisplayName(ChatColor.GREEN + "Green Wool");
-		meta.setLore(Util.asList(ChatColor.WHITE + "This is lore."));
+		meta.setLore(Lists.newArrayList(ChatColor.WHITE + "This is lore."));
 		item.setItemMeta(meta);
 		return item;
 	}
@@ -429,7 +405,7 @@ public class PacketContainerTest {
 		// are inner classes (which is ultimately pointless because AttributeSnapshots don't access any
 		// members of the packet itself)
 		PacketPlayOutUpdateAttributes packet = (PacketPlayOutUpdateAttributes) attribute.getHandle();
-		AttributeBase base = IRegistry.am.a(MinecraftKey.a("generic.max_health"));
+		AttributeBase base = IRegistry.aj.a(MinecraftKey.a("generic.max_health"));
 		AttributeSnapshot snapshot = new AttributeSnapshot(base, 20.0D, modifiers);
 		attribute.getSpecificModifier(List.class).write(0, Lists.newArrayList(snapshot));
 
@@ -489,10 +465,10 @@ public class PacketContainerTest {
 				PacketType.Play.Server.ENTITY_EFFECT, new Class<?>[]{int.class, MobEffect.class});
 		PacketContainer packet = creator.createPacket(entityId, mobEffect);
 
-		assertEquals(entityId, (int) packet.getIntegers().read(0));
-		assertEquals(effect.getType().getId(), (byte) packet.getBytes().read(0));
-		assertEquals(effect.getAmplifier(), (byte) packet.getBytes().read(1));
-		assertEquals(effect.getDuration(), (int) packet.getIntegers().read(1));
+		assertEquals(entityId, packet.getIntegers().read(0));
+		assertEquals(effect.getType().getId(), packet.getIntegers().read(1));
+		assertEquals(effect.getAmplifier(), (byte) packet.getBytes().read(0));
+		assertEquals(effect.getDuration(), packet.getIntegers().read(2));
 
 		int e = 0;
 		if (effect.isAmbient()) {
@@ -505,7 +481,7 @@ public class PacketContainerTest {
 			e |= 4;
 		}
 
-		assertEquals(e, (byte) packet.getBytes().read(2));
+		assertEquals(e, (byte) packet.getBytes().read(1));
 	}
 
 	@Test
@@ -756,7 +732,7 @@ public class PacketContainerTest {
 
 				// Make sure watchable collections can be cloned
 				if (type == PacketType.Play.Server.ENTITY_METADATA) {
-					constructed.getWatchableCollectionModifier().write(0, Util.asList(
+					constructed.getWatchableCollectionModifier().write(0, Lists.newArrayList(
 							new WrappedWatchableObject(new WrappedDataWatcherObject(0, Registry.get(Byte.class)),
 									(byte) 1),
 							new WrappedWatchableObject(new WrappedDataWatcherObject(0, Registry.get(String.class)),

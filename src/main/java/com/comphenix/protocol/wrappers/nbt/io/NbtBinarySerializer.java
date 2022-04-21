@@ -1,19 +1,15 @@
 package com.comphenix.protocol.wrappers.nbt.io;
 
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.lang.reflect.Method;
-
 import com.comphenix.protocol.reflect.FieldAccessException;
 import com.comphenix.protocol.reflect.FuzzyReflection;
 import com.comphenix.protocol.reflect.accessors.Accessors;
 import com.comphenix.protocol.reflect.accessors.MethodAccessor;
 import com.comphenix.protocol.utility.MinecraftReflection;
-import com.comphenix.protocol.wrappers.nbt.NbtBase;
-import com.comphenix.protocol.wrappers.nbt.NbtCompound;
-import com.comphenix.protocol.wrappers.nbt.NbtFactory;
-import com.comphenix.protocol.wrappers.nbt.NbtList;
-import com.comphenix.protocol.wrappers.nbt.NbtWrapper;
+import com.comphenix.protocol.wrappers.nbt.*;
+
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.lang.reflect.Method;
 
 public class NbtBinarySerializer {
 	private static final Class<?> NBT_BASE_CLASS = MinecraftReflection.getNBTBaseClass();
@@ -31,7 +27,7 @@ public class NbtBinarySerializer {
 	 * Load an NBT compound from the NBTBase static method pre-1.7.2.
 	 */
 	private static class LoadMethodNbtClass implements LoadMethod {
-		private MethodAccessor accessor = getNbtLoadMethod(DataInput.class);
+		private final MethodAccessor accessor = getNbtLoadMethod(DataInput.class);
 		
 		@Override
 		public Object loadNbt(DataInput input) {
@@ -43,7 +39,7 @@ public class NbtBinarySerializer {
 	 * Load an NBT compound from the NBTCompressedStreamTools static method in 1.7.2 - 1.7.5
 	 */
 	private static class LoadMethodWorldUpdate implements LoadMethod {
-		private MethodAccessor accessor = getNbtLoadMethod(DataInput.class, int.class);
+		private final MethodAccessor accessor = getNbtLoadMethod(DataInput.class, int.class);
 		
 		@Override
 		public Object loadNbt(DataInput input) {
@@ -55,9 +51,9 @@ public class NbtBinarySerializer {
 	 * Load an NBT compound from the NBTCompressedStreamTools static method in 1.7.8
 	 */
 	private static class LoadMethodSkinUpdate implements LoadMethod {
-		private Class<?> readLimitClass = MinecraftReflection.getNBTReadLimiterClass();
-		private Object readLimiter = FuzzyReflection.fromClass(readLimitClass).getSingleton();
-		private MethodAccessor accessor = getNbtLoadMethod(DataInput.class, int.class, readLimitClass);
+		private final Class<?> readLimitClass = MinecraftReflection.getNBTReadLimiterClass();
+		private final Object readLimiter = FuzzyReflection.fromClass(readLimitClass).getSingleton();
+		private final MethodAccessor accessor = getNbtLoadMethod(DataInput.class, int.class, readLimitClass);
 		
 		@Override
 		public Object loadNbt(DataInput input) {

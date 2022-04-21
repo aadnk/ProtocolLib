@@ -16,14 +16,13 @@
  */
 package com.comphenix.protocol;
 
-import java.util.Arrays;
-import java.util.List;
-
 import com.comphenix.protocol.error.BasicErrorReporter;
 import com.comphenix.protocol.error.ErrorReporter;
-
 import org.apache.commons.lang.Validate;
 import org.bukkit.plugin.Plugin;
+
+import java.util.Collections;
+import java.util.List;
 
 /**
  * The main entry point for ProtocolLib.
@@ -38,17 +37,17 @@ public class ProtocolLibrary {
 	/**
 	 * The maximum version ProtocolLib has been tested with.
 	 */
-	public static final String MAXIMUM_MINECRAFT_VERSION = "1.18";
+	public static final String MAXIMUM_MINECRAFT_VERSION = "1.18.2";
 
 	/**
-	 * The date (with ISO 8601 or YYYY-MM-DD) when the most recent version (1.18) was released.
+	 * The date (with ISO 8601 or YYYY-MM-DD) when the most recent version (1.18.2) was released.
 	 */
-	public static final String MINECRAFT_LAST_RELEASE_DATE = "2021-11-30";
+	public static final String MINECRAFT_LAST_RELEASE_DATE = "2022-02-28";
 
 	/**
 	 * Plugins that are currently incompatible with ProtocolLib.
 	 */
-	public static final List<String> INCOMPATIBLE = Arrays.asList("TagAPI");
+	public static final List<String> INCOMPATIBLE = Collections.singletonList("TagAPI");
 
 	private static Plugin plugin;
 	private static ProtocolConfig config;

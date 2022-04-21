@@ -1,12 +1,7 @@
 package com.comphenix.protocol;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
 import com.comphenix.protocol.reflect.FieldUtils;
 import com.comphenix.protocol.utility.Constants;
-import java.util.Collections;
-import java.util.List;
 import net.minecraft.SharedConstants;
 import net.minecraft.core.IRegistry;
 import net.minecraft.server.DispenserRegistry;
@@ -15,11 +10,17 @@ import org.apache.logging.log4j.LogManager;
 import org.bukkit.Bukkit;
 import org.bukkit.Server;
 import org.bukkit.World;
-import org.bukkit.craftbukkit.v1_18_R1.CraftServer;
-import org.bukkit.craftbukkit.v1_18_R1.CraftWorld;
-import org.bukkit.craftbukkit.v1_18_R1.inventory.CraftItemFactory;
-import org.bukkit.craftbukkit.v1_18_R1.util.Versioning;
+import org.bukkit.craftbukkit.v1_18_R2.CraftServer;
+import org.bukkit.craftbukkit.v1_18_R2.CraftWorld;
+import org.bukkit.craftbukkit.v1_18_R2.inventory.CraftItemFactory;
+import org.bukkit.craftbukkit.v1_18_R2.util.Versioning;
 import org.spigotmc.SpigotWorldConfig;
+
+import java.util.Collections;
+import java.util.List;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Used to ensure that ProtocolLib and Bukkit is prepared to be tested.

@@ -17,14 +17,15 @@
 
 package com.comphenix.protocol.wrappers.nbt;
 
+import com.comphenix.protocol.wrappers.collection.ConvertedMap;
+import com.comphenix.protocol.wrappers.nbt.io.NbtBinarySerializer;
+import org.jetbrains.annotations.NotNull;
+
 import java.io.DataOutput;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
-
-import com.comphenix.protocol.wrappers.collection.ConvertedMap;
-import com.comphenix.protocol.wrappers.nbt.io.NbtBinarySerializer;
 
 /**
  * A concrete implementation of an NbtCompound that wraps an underlying NMS Compound.
@@ -33,7 +34,7 @@ import com.comphenix.protocol.wrappers.nbt.io.NbtBinarySerializer;
  */
 class WrappedCompound implements NbtWrapper<Map<String, NbtBase<?>>>, NbtCompound {
 	// A list container
-	private WrappedElement<Map<String, Object>> container;
+	private final WrappedElement<Map<String, Object>> container;
 	
 	// Saved wrapper map
 	private ConvertedMap<String, Object, NbtBase<?>> savedMap;
@@ -147,8 +148,8 @@ class WrappedCompound implements NbtWrapper<Map<String, NbtBase<?>>>, NbtCompoun
 					if (inner == null)
 						return null;
 					return NbtFactory.fromNMS(inner);
-				};
-				
+				}
+
 				@Override
 				protected NbtBase<?> toOuter(String key, Object inner) {
 					if (inner == null)
@@ -172,10 +173,10 @@ class WrappedCompound implements NbtWrapper<Map<String, NbtBase<?>>>, NbtCompoun
 			Object value = entry.getValue();
 			
 			// We don't really know
-			if (value instanceof NbtBase)
+			if (value != null)
 				put(entry.getValue());
 			else
-				putObject(entry.getKey(), entry.getValue());
+				putObject(entry.getKey(), null);
 		}
 	}
 	
@@ -239,7 +240,7 @@ class WrappedCompound implements NbtWrapper<Map<String, NbtBase<?>>>, NbtCompoun
 	 * @return This compound, for chaining.
 	 */
 	@Override
-	public <T> NbtCompound put(NbtBase<T> entry) {
+	public <T> NbtCompound put(@NotNull NbtBase<T> entry) {
 		if (entry == null)
 			throw new IllegalArgumentException("Entry cannot be NULL.");
 		

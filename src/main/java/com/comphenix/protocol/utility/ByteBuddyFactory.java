@@ -1,7 +1,6 @@
 package com.comphenix.protocol.utility;
 
 import net.bytebuddy.ByteBuddy;
-import net.bytebuddy.description.type.TypeDescription;
 import net.bytebuddy.dynamic.DynamicType;
 import net.bytebuddy.dynamic.scaffold.subclass.ConstructorStrategy;
 
@@ -10,7 +9,7 @@ import net.bytebuddy.dynamic.scaffold.subclass.ConstructorStrategy;
  * @author Kristian
  */
 public class ByteBuddyFactory {
-	private static ByteBuddyFactory INSTANCE = new ByteBuddyFactory();
+	private static final ByteBuddyFactory INSTANCE = new ByteBuddyFactory();
 	
 	// The current class loader
 	private ClassLoader loader = ByteBuddyFactory.class.getClassLoader();

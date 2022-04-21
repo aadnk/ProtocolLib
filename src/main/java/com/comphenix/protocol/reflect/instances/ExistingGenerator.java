@@ -17,17 +17,16 @@
 
 package com.comphenix.protocol.reflect.instances;
 
+import com.comphenix.protocol.reflect.FieldUtils;
+import com.comphenix.protocol.reflect.FuzzyReflection;
+import com.google.common.collect.Lists;
+
+import javax.annotation.Nullable;
 import java.lang.reflect.Field;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
-
-import javax.annotation.Nullable;
-
-import com.comphenix.protocol.reflect.FieldUtils;
-import com.comphenix.protocol.reflect.FuzzyReflection;
-import com.google.common.collect.Lists;
 
 /**
  * Provides instance constructors using a list of existing values.
@@ -42,10 +41,10 @@ public class ExistingGenerator implements InstanceProvider {
 	 * @author Kristian
 	 */
 	private static final class Node {
-		private Map<Class<?>, Node> children;
-		private Class<?> key;
+		private final Map<Class<?>, Node> children;
+		private final Class<?> key;
 		private Object value;
-		private int level;
+		private final int level;
 		
 		public Node(Class<?> key, Object value, int level) {
 			this.children = new HashMap<Class<?>, Node>();
@@ -81,7 +80,7 @@ public class ExistingGenerator implements InstanceProvider {
 	}
 	
 	// Represents the root node
-	private Node root = new Node(null, null, 0);
+	private final Node root = new Node(null, null, 0);
 	
 	private ExistingGenerator() {
 		// Only accessible to the constructors

@@ -17,14 +17,6 @@
 
 package com.comphenix.protocol.reflect.compiler;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.error.Report;
 import com.comphenix.protocol.error.ReportType;
@@ -32,6 +24,14 @@ import com.comphenix.protocol.reflect.StructureModifier;
 import com.google.common.base.Objects;
 import com.google.common.primitives.Primitives;
 import net.bytebuddy.jar.asm.*;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 // public class CompiledStructureModifierPacket20<TField> extends CompiledStructureModifier<TField> {
 //
@@ -98,8 +98,8 @@ public final class StructureCompiler {
 	// Used to store generated classes of different types
 	@SuppressWarnings("rawtypes")
 	static class StructureKey {
-		private Class targetType;
-		private Class fieldType;
+		private final Class targetType;
+		private final Class fieldType;
 
 		public StructureKey(StructureModifier<?> source) {
 			this(source.getTargetType(), source.getFieldType());
@@ -130,16 +130,16 @@ public final class StructureCompiler {
 	private volatile static Method defineMethod;
 
 	@SuppressWarnings("rawtypes")
-	private Map<StructureKey, Class> compiledCache = new ConcurrentHashMap<StructureKey, Class>();
+	private final Map<StructureKey, Class> compiledCache = new ConcurrentHashMap<StructureKey, Class>();
 
 	// The class loader we'll store our classes
-	private ClassLoader loader;
+	private final ClassLoader loader;
 
 	// References to other classes
-	private static String PACKAGE_NAME = "com/comphenix/protocol/reflect/compiler";
-	private static String SUPER_CLASS = "com/comphenix/protocol/reflect/StructureModifier";
-	private static String COMPILED_CLASS = PACKAGE_NAME + "/CompiledStructureModifier";
-	private static String FIELD_EXCEPTION_CLASS = "com/comphenix/protocol/reflect/FieldAccessException";
+	private static final String PACKAGE_NAME = "com/comphenix/protocol/reflect/compiler";
+	private static final String SUPER_CLASS = "com/comphenix/protocol/reflect/StructureModifier";
+	private static final String COMPILED_CLASS = PACKAGE_NAME + "/CompiledStructureModifier";
+	private static final String FIELD_EXCEPTION_CLASS = "com/comphenix/protocol/reflect/FieldAccessException";
 
 	// On java 9+ (53.0+) CLassLoader#defineClass(String, byte[], int, int) should not be used anymore.
 	// It will throw warnings and on Java 16+ (60.0+), it does not work at all anymore.
@@ -301,18 +301,17 @@ public final class StructureCompiler {
 
 		byte[] data = cw.toByteArray();
 
-		Class<?> clazz = defineClass(data);
 		// DEBUG CODE: Print the content of the generated class.
 		//org.objectweb.asm.ClassReader cr = new org.objectweb.asm.ClassReader(data);
 		//cr.accept(new ASMifierClassVisitor(new PrintWriter(System.out)), 0);
-		return clazz;
+		return defineClass(data);
 	}
 
 	private Class<?> defineClassLegacy(byte[] data) throws InvocationTargetException, IllegalAccessException,
 			NoSuchMethodException {
 		if (defineMethod == null) {
 			Method defined = ClassLoader.class.getDeclaredMethod("defineClass",
-					new Class<?>[]{String.class, byte[].class, int.class, int.class});
+					String.class, byte[].class, int.class, int.class);
 
 			// Awesome. Now, create and return it.
 			defined.setAccessible(true);

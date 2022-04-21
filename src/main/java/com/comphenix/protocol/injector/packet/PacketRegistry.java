@@ -17,11 +17,6 @@
 
 package com.comphenix.protocol.injector.packet;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-
 import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.PacketType.Sender;
 import com.comphenix.protocol.ProtocolLogger;
@@ -33,6 +28,11 @@ import com.comphenix.protocol.utility.MinecraftVersion;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Static packet registry in Minecraft.
@@ -51,8 +51,8 @@ public class PacketRegistry {
 		private final Map<PacketType, Optional<Class<?>>> typeToClass = new ConcurrentHashMap<>();
 		private final Map<Class<?>, PacketType> classToType = new ConcurrentHashMap<>();
 
-		private volatile Set<PacketType> serverPackets = Sets.newHashSet();
-		private volatile Set<PacketType> clientPackets = Sets.newHashSet();
+		private final Set<PacketType> serverPackets = Sets.newHashSet();
+		private final Set<PacketType> clientPackets = Sets.newHashSet();
 		private final List<MapContainer> containers = Lists.newArrayList();
 
 		public Register() {}
@@ -352,7 +352,7 @@ public class PacketRegistry {
 
 		// Try the lookup first (may be null, so check contains)
 		Optional<Class<?>> res = REGISTER.typeToClass.get(type);
-		if (res != null) {
+		if (res.isPresent()) {
 			return res;
 		}
 

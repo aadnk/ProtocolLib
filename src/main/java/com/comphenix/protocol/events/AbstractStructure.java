@@ -1079,7 +1079,7 @@ public abstract class AbstractStructure {
      * @author dmulloy2
      */
     private static class NBTComponentConverter implements EquivalentConverter<WrappedChatComponent[]> {
-        private EquivalentConverter<NbtBase<?>> nbtConverter = BukkitConverters.getNbtConverter();
+        private final EquivalentConverter<NbtBase<?>> nbtConverter = BukkitConverters.getNbtConverter();
         private final int lines = 4;
 
         @Override

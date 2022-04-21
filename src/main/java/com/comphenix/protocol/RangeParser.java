@@ -17,15 +17,11 @@
 
 package com.comphenix.protocol;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Deque;
-import java.util.List;
-
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.Range;
+
+import java.util.*;
 
 /**
  * Used to parse ranges in CommandPacket.
@@ -40,14 +36,11 @@ class RangeParser {
 	 * @return The parsed ranges.
 	 */
 	public static List<Range<Integer>> getRanges(String text, Range<Integer> legalRange) {
-		return getRanges(new ArrayDeque<String>(Arrays.asList(text)), legalRange);
+		return getRanges(new ArrayDeque<String>(Collections.singletonList(text)), legalRange);
 	}
 	
 	/**
 	 * Parse ranges from an array of elements.
-	 * @param args - array of elements.
-	 * @param offset - beginning offset.
-	 * @param lastIndex - the last index of the array to read.
 	 * @param legalRange - range of legal values.
 	 * @return The parsed ranges.
 	 */

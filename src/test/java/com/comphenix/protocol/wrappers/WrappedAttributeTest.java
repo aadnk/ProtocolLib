@@ -1,15 +1,10 @@
 package com.comphenix.protocol.wrappers;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import com.comphenix.protocol.BukkitInitialization;
 import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.wrappers.WrappedAttributeModifier.Operation;
 import com.google.common.collect.Lists;
-import java.util.List;
 import net.minecraft.core.IRegistry;
 import net.minecraft.network.protocol.game.PacketPlayOutUpdateAttributes.AttributeSnapshot;
 import net.minecraft.resources.MinecraftKey;
@@ -18,6 +13,10 @@ import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 public class WrappedAttributeTest {
 
@@ -91,7 +90,7 @@ public class WrappedAttributeTest {
 			modifiers.add((AttributeModifier) wrapper.getHandle());
 		}
 
-		AttributeBase base = IRegistry.am.a(MinecraftKey.a(attribute.getAttributeKey()));
+		AttributeBase base = IRegistry.aj.a(MinecraftKey.a(attribute.getAttributeKey()));
 		return new AttributeSnapshot(base, attribute.getBaseValue(), modifiers);
 	}
 

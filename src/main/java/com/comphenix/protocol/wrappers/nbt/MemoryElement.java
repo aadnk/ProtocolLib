@@ -3,7 +3,7 @@ package com.comphenix.protocol.wrappers.nbt;
 class MemoryElement<TType> implements NbtBase<TType> {
 	private String name;
 	private TType value;
-	private NbtType type;
+	private final NbtType type;
 	
 	public MemoryElement(String name, TType value) {
 		if (name == null)

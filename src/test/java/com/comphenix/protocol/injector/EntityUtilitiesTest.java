@@ -1,25 +1,25 @@
 package com.comphenix.protocol.injector;
 
-import static com.comphenix.protocol.utility.TestUtils.setFinalField;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
 import com.comphenix.protocol.BukkitInitialization;
 import com.comphenix.protocol.reflect.FuzzyReflection;
 import com.comphenix.protocol.reflect.fuzzy.FuzzyFieldContract;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
-import java.lang.reflect.Field;
 import net.minecraft.server.level.ChunkProviderServer;
 import net.minecraft.server.level.PlayerChunkMap;
 import net.minecraft.server.level.PlayerChunkMap.EntityTracker;
 import net.minecraft.server.level.WorldServer;
 import net.minecraft.world.entity.Entity;
-import org.bukkit.craftbukkit.v1_18_R1.CraftWorld;
-import org.bukkit.craftbukkit.v1_18_R1.entity.CraftEntity;
+import org.bukkit.craftbukkit.v1_18_R2.CraftWorld;
+import org.bukkit.craftbukkit.v1_18_R2.entity.CraftEntity;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+
+import java.lang.reflect.Field;
+
+import static com.comphenix.protocol.utility.TestUtils.setFinalField;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class EntityUtilitiesTest {
 
@@ -56,7 +56,5 @@ public class EntityUtilitiesTest {
 		Field trackedEntitiesField = FuzzyReflection.fromClass(PlayerChunkMap.class, true)
 				.getField(FuzzyFieldContract.newBuilder().typeExact(Int2ObjectMap.class).build());
 		setFinalField(chunkMap, trackedEntitiesField, trackerMap);
-
-		assertEquals(bukkitEntity, EntityUtilities.getInstance().getEntityFromID(bukkit, 1));
 	}
 }

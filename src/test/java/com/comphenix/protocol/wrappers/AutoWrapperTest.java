@@ -1,11 +1,5 @@
 package com.comphenix.protocol.wrappers;
 
-import static com.comphenix.protocol.utility.MinecraftReflection.getMinecraftClass;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertSame;
-
 import com.comphenix.protocol.BukkitInitialization;
 import net.minecraft.advancements.AdvancementDisplay;
 import net.minecraft.advancements.AdvancementFrameType;
@@ -15,6 +9,9 @@ import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+
+import static com.comphenix.protocol.utility.MinecraftReflection.getMinecraftClass;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class AutoWrapperTest {
 

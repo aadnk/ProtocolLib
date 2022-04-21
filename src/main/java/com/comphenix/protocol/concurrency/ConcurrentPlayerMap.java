@@ -9,7 +9,6 @@ import com.google.common.cache.RemovalListener;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-
 import org.bukkit.entity.Player;
 
 import java.util.AbstractMap;
@@ -55,13 +54,13 @@ public class ConcurrentPlayerMap<TValue> extends AbstractMap<Player, TValue> imp
 	/**
 	 * An internal map of player keys to values.
 	 */
-	private ConcurrentMap<Object, TValue> valueLookup = createValueMap();
+	private final ConcurrentMap<Object, TValue> valueLookup = createValueMap();
 	
 	/**
 	 * A cache of the associated keys for each player.
 	 */
 
-	private ConcurrentMap<Object, Player> keyLookup = createKeyCache();
+	private final ConcurrentMap<Object, Player> keyLookup = createKeyCache();
 	/**
 	 * The method used to retrieve a unique key for a player.
 	 */

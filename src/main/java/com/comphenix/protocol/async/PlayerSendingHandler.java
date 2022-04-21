@@ -17,6 +17,14 @@
 
 package com.comphenix.protocol.async;
 
+import com.comphenix.protocol.PacketType;
+import com.comphenix.protocol.concurrency.ConcurrentPlayerMap;
+import com.comphenix.protocol.error.ErrorReporter;
+import com.comphenix.protocol.events.PacketEvent;
+import com.comphenix.protocol.injector.SortedPacketListenerList;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import org.bukkit.entity.Player;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentMap;
@@ -24,27 +32,18 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 
-import org.bukkit.entity.Player;
-
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.concurrency.ConcurrentPlayerMap;
-import com.comphenix.protocol.error.ErrorReporter;
-import com.comphenix.protocol.events.PacketEvent;
-import com.comphenix.protocol.injector.SortedPacketListenerList;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
-
 /**
  * Contains every sending queue for every player.
  * 
  * @author Kristian
  */
 class PlayerSendingHandler {
-	private ErrorReporter reporter;
-	private ConcurrentMap<Player, QueueContainer> playerSendingQueues;
+	private final ErrorReporter reporter;
+	private final ConcurrentMap<Player, QueueContainer> playerSendingQueues;
 	
 	// Timeout listeners
-	private SortedPacketListenerList serverTimeoutListeners;
-	private SortedPacketListenerList clientTimeoutListeners;
+	private final SortedPacketListenerList serverTimeoutListeners;
+	private final SortedPacketListenerList clientTimeoutListeners;
 	
 	// Asynchronous packet sending
 	private Executor asynchronousSender;
@@ -58,8 +57,8 @@ class PlayerSendingHandler {
 	 * @author Kristian
 	 */
 	private class QueueContainer {
-		private PacketSendingQueue serverQueue;
-		private PacketSendingQueue clientQueue;
+		private final PacketSendingQueue serverQueue;
+		private final PacketSendingQueue clientQueue;
 		
 		public QueueContainer() {
 			// Server packets can be sent concurrently
@@ -186,8 +185,7 @@ class PlayerSendingHandler {
 	
 	/**
 	 * Immediately send every client packet with the given list of IDs.
-	 * @param ids - ID of every packet to send immediately.
-	 * @param synchronusOK - whether or not we're running on the main thread. 
+	 * @param synchronusOK - whether or not we're running on the main thread.
 	 */
 	public void sendClientPackets(List<PacketType> types, boolean synchronusOK) {
 		if (!cleaningUp) {

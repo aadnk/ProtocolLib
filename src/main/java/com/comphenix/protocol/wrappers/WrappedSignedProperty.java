@@ -1,11 +1,11 @@
 package com.comphenix.protocol.wrappers;
 
-import java.security.PublicKey;
-
 import com.comphenix.protocol.reflect.accessors.Accessors;
 import com.comphenix.protocol.reflect.accessors.ConstructorAccessor;
 import com.comphenix.protocol.reflect.accessors.MethodAccessor;
 import com.google.common.base.Objects;
+
+import java.security.PublicKey;
 
 /**
  * Represents a wrapper over a signed property.
@@ -16,12 +16,12 @@ public class WrappedSignedProperty extends AbstractWrapper {
 	private static final String UTIL_PACKAGE = "net.minecraft.util.";
 
 	private static Class<?> PROPERTY;
-	private static ConstructorAccessor CONSTRUCTOR;
-	private static MethodAccessor GET_NAME;
-	private static MethodAccessor GET_SIGNATURE;
-	private static MethodAccessor GET_VALUE;
-	private static MethodAccessor HAS_SIGNATURE;
-	private static MethodAccessor IS_SIGNATURE_VALID;
+	private static final ConstructorAccessor CONSTRUCTOR;
+	private static final MethodAccessor GET_NAME;
+	private static final MethodAccessor GET_SIGNATURE;
+	private static final MethodAccessor GET_VALUE;
+	private static final MethodAccessor HAS_SIGNATURE;
+	private static final MethodAccessor IS_SIGNATURE_VALID;
 
 	static {
 		try {

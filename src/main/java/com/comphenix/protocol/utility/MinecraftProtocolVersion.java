@@ -1,10 +1,10 @@
 package com.comphenix.protocol.utility;
 
+import com.google.common.collect.Maps;
+
 import java.util.Map.Entry;
 import java.util.NavigableMap;
 import java.util.TreeMap;
-
-import com.google.common.collect.Maps;
 
 /**
  * A lookup of the associated protocol version of a given Minecraft server.
@@ -79,6 +79,8 @@ public class MinecraftProtocolVersion {
 
 		map.put(new MinecraftVersion(1, 18, 0), 757);
 		map.put(new MinecraftVersion(1, 18, 1), 757);
+		map.put(new MinecraftVersion(1, 18, 2), 758);
+
 		return map;
 	}
 
