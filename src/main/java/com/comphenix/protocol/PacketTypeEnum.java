@@ -50,28 +50,28 @@ public class PacketTypeEnum implements Iterable<PacketType> {
 			// Register every non-deprecated field
 			for (Field entry : this.getClass().getFields()) {
 				if (Modifier.isStatic(entry.getModifiers()) && PacketType.class.isAssignableFrom(entry.getType())) {
-					PacketType value = (PacketType) entry.get(null);
-					if (value == null) {
+					PacketType packetValue = (PacketType) entry.get(null);
+					if (packetValue == null) {
 						throw new IllegalArgumentException("Field " + entry.getName() + " was null!");
 					}
 
-					value.setName(entry.getName());
+					packetValue.setName(entry.getName());
 
 					if (entry.getAnnotation(PacketType.ForceAsync.class) != null) {
-						value.forceAsync();
+						packetValue.forceAsync();
 					}
 
 					boolean deprecated = entry.getAnnotation(Deprecated.class) != null;
-					if (deprecated) value.setDeprecated();
+					if (deprecated) packetValue.setDeprecated();
 
-					if (members.contains(value)) {
+					if (members.contains(packetValue)) {
 						// Replace potentially deprecated packet types with non-deprecated ones
 						if (!deprecated) {
-							members.remove(value);
-							members.add(value);
+							members.remove(packetValue);
+							members.add(packetValue);
 						}
 					} else {
-						members.add(value);
+						members.add(packetValue);
 					}
 				}
 			}

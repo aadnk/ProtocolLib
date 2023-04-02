@@ -1,12 +1,11 @@
 package com.comphenix.protocol.timing;
 
-import java.util.Calendar;
-import java.util.Date;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import com.comphenix.protocol.PacketType;
 import org.bukkit.plugin.Plugin;
 
 import com.comphenix.protocol.events.PacketListener;
@@ -31,7 +30,9 @@ public class TimedListenerManager {
 	// When it was started
 	private volatile Date started;
 	private volatile Date stopped;
-	
+
+	private final Map<PacketType, StatisticsStream> packets = new HashMap<>();
+
 	// The map of time trackers
 	private final ConcurrentMap<String, ImmutableMap<ListenerType, TimedTracker>> map = new ConcurrentHashMap<>();
 
@@ -181,4 +182,24 @@ public class TimedListenerManager {
 		}
 		return builder.build();
 	}
+
+	/**
+	 * Retrieve a map (indexed by packet type) of all relevant statistics.
+	 *
+	 * @return The map of statistics.
+	 */
+	public synchronized Map<PacketType, StatisticsStream> getStatistics() {
+		final Map<PacketType, StatisticsStream> clone = new HashMap<>();
+
+		for (Map.Entry<PacketType, StatisticsStream> entry : this.packets.entrySet()) {
+			clone.put(
+					entry.getKey(),
+					new StatisticsStream(entry.getValue())
+			);
+		}
+		return clone;
+	}
+
+
+
 }

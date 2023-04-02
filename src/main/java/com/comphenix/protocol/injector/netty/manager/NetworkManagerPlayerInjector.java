@@ -86,12 +86,16 @@ final class NetworkManagerPlayerInjector extends AbstractPlayerInjectionHandler 
 
 	@Override
 	public void addPacketHandler(PacketType type, Set<ListenerOptions> options) {
-		if (!type.isAsyncForced() && (options == null || !options.contains(ListenerOptions.ASYNC))) {
+		boolean isAsyncForced = type.isAsyncForced();
+		boolean isAsyncOptionSpecified = options != null && options.contains(ListenerOptions.ASYNC);
+
+		if (!isAsyncForced && !isAsyncOptionSpecified) {
 			this.mainThreadListeners.addType(type);
 		}
 
 		super.addPacketHandler(type, options);
 	}
+
 
 	@Override
 	public void removePacketHandler(PacketType type) {

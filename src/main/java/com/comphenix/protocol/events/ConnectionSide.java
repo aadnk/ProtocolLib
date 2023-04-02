@@ -65,20 +65,20 @@ public enum ConnectionSide {
 	/**
 	 * If both connection sides are present, return {@link #BOTH} - otherwise, return the one valud connection side.
 	 * <p>
-	 * NULL is not a valid connection side.
-	 * @param a - the first connection side.
-	 * @param b - the second connection side.
+	 * NULL is not firstConnection valid connection side.
+	 * @param firstConnection - the first connection side.
+	 * @param secondConnection - the second connection side.
 	 * @return BOTH or the one valid side, or NULL.
 	 */
-	public static ConnectionSide add(ConnectionSide a, ConnectionSide b) {
-		if (a == null)
-			return b;
-		if (b == null)
-			return a;
+	public static ConnectionSide add(ConnectionSide firstConnection, ConnectionSide secondConnection) {
+		if (firstConnection == null)
+			return secondConnection;
+		if (secondConnection == null)
+			return firstConnection;
 		
 		// Now merge them together
-		boolean client = a.isForClient() || b.isForClient();
-		boolean server = a.isForServer() || b.isForServer();
+		boolean client = firstConnection.isForClient() || secondConnection.isForClient();
+		boolean server = firstConnection.isForServer() || secondConnection.isForServer();
 		
 		if (client && server)
 			return BOTH;

@@ -124,8 +124,13 @@ public class NetworkMarker {
 	 *
 	 * @return Every post packet listener. Never NULL.
 	 */
+
 	public Set<PacketPostListener> getPostListeners() {
-		return this.postListeners != null ? this.postListeners : Collections.emptySet();
+		Set<PacketPostListener> listeners = this.postListeners;
+		if (listeners == null) {
+			listeners = Collections.emptySet();
+		}
+		return listeners;
 	}
 
 	/**

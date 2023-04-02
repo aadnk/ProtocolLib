@@ -7,47 +7,53 @@ import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.Range;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Deque;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Locale;
-import java.util.Set;
+import java.util.*;
 
 class PacketTypeParser {
+
 	public static final Range<Integer> DEFAULT_MAX_RANGE = Range.closed(0, 255);
 	
-	private Sender side = null;
+	private Sender connectionSide = null;
 	private Protocol protocol = null;
-	
+
+
+	private Map<Protocol, ProtocolParser> protocolParsers = new HashMap<>();
+	{
+		protocolParsers.put(Protocol.HANDSHAKING, new HandshakingProtocolParser());
+		protocolParsers.put(Protocol.LOGIN, new LoginProtocolParser());
+		protocolParsers.put(Protocol.PLAY, new PlayProtocolParser());
+		protocolParsers.put(Protocol.STATUS, new StatusProtocolParser());
+	}
+
 	public Set<PacketType> parseTypes(Deque<String> arguments, Range<Integer> defaultRange) {
 		final Set<PacketType> result = new HashSet<>();
-		side = null;
+		connectionSide = null;
 		protocol = null;
-		
+
 		// Find these first
-		while (side == null) {
+		while (connectionSide == null) {
 			String arg = arguments.poll();
-			
+
 			// Attempt to parse a side or protocol first
-			if (side == null) {
+			if (connectionSide == null) {
 				ConnectionSide connection = parseSide(arg);
-				
+
 				if (connection != null) {
-					side = connection.getSender();
+					connectionSide = connection.getSender();
 					continue;
 				}
 			}
 			if (protocol == null) {
-				if ((protocol = parseProtocol(arg)) != null) {
+				ProtocolParser protocolParser = protocolParsers.get(protocolParsers.get(arg));
+				if (protocolParser != null) {
+					protocol = protocolParser.parseProtocol(arg);
 					continue;
 				}
 			}
 			throw new IllegalArgumentException("Specify connection side (CLIENT or SERVER).");
 		}
-		
+
+
 		// Then we move on to parsing IDs (named packet types soon to come)
 		List<Range<Integer>> ranges = RangeParser.getRanges(arguments, DEFAULT_MAX_RANGE);
 
@@ -58,7 +64,7 @@ class PacketTypeParser {
 				Collection<PacketType> names = PacketType.fromName(name);
 				
 				for (PacketType type : names) {
-					if (type.getProtocol() == protocol && type.getSender() == side) {
+					if (type.getProtocol() == protocol && type.getSender() == connectionSide) {
 						result.add(type);
 						it.remove();
 					}
@@ -76,11 +82,11 @@ class PacketTypeParser {
 				// Deprecated packets
 				if (protocol == null) {
 					if (PacketType.hasLegacy(id)) {
-						result.add(PacketType.findLegacy(id, side));
+						result.add(PacketType.findLegacy(id, connectionSide));
 					}
 				} else {
-					if (PacketType.hasCurrent(protocol, side, id)) {
-						result.add(PacketType.findCurrent(protocol, side, id));
+					if (PacketType.hasCurrent(protocol, connectionSide, id)) {
+						result.add(PacketType.findCurrent(protocol, connectionSide, id));
 					}
 				}
 			}
@@ -101,7 +107,7 @@ class PacketTypeParser {
 	 * @return Last sender.
 	 */
 	public Sender getLastSide() {
-		return side;
+		return connectionSide;
 	}
 	
 	/**
@@ -122,27 +128,45 @@ class PacketTypeParser {
 		else
 			return null;
 	}
-	
-	/**
-	 * Parse a protocol from a string.
-	 * @param text - the possible protocol.
-	 * @return The protocol, or NULL if not found.
-	 */
-	public Protocol parseProtocol(String text) {
-		if (text == null) return null;
 
-		switch (text.toLowerCase()) {
-			case "handshake":
-			case "handshaking":
+	class HandshakingProtocolParser implements ProtocolParser {
+		public Protocol parseProtocol(String protocolValue) {
+			if (protocolValue == null) return null;
+			if (protocolValue.equalsIgnoreCase("handshake") || protocolValue.equalsIgnoreCase("handshaking")) {
 				return Protocol.HANDSHAKING;
-			case "login":
+			}
+			return null;
+		}
+	}
+	class LoginProtocolParser implements ProtocolParser {
+		public Protocol parseProtocol(String protocolValue) {
+			if (protocolValue == null) return null;
+			if (protocolValue.equalsIgnoreCase("login")) {
 				return Protocol.LOGIN;
-			case "play":
-			case "game":
+			}
+			return null;
+		}
+	}
+
+	class PlayProtocolParser implements ProtocolParser {
+		public Protocol parseProtocol(String protocolValue) {
+			if (protocolValue == null) return null;
+			if (protocolValue.equalsIgnoreCase("play") || protocolValue.equalsIgnoreCase("game")) {
 				return Protocol.PLAY;
-			case "status":
+			}
+			return null;
+		}
+	}
+
+	class StatusProtocolParser implements ProtocolParser {
+		public Protocol parseProtocol(String protocolValue) {
+			if (protocolValue == null) return null;
+			if (protocolValue.equalsIgnoreCase("status")) {
 				return Protocol.STATUS;
-			default: return null;
+			}
+			return null;
 		}
 	}
 }
+
+

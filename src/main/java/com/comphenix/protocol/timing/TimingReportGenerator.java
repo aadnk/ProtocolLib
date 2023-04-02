@@ -60,7 +60,8 @@ public class TimingReportGenerator {
 	}
 
 	private void saveStatistics(Writer destination, TimedTracker tracker, ListenerType type) throws IOException {
-		Map<PacketType, StatisticsStream> streams = tracker.getStatistics();
+		TimedListenerManager timedListenerManager= new TimedListenerManager();
+		Map<PacketType, StatisticsStream> streams = timedListenerManager.getStatistics();
 		StatisticsStream sum = new StatisticsStream();
 		int count = 0;
 

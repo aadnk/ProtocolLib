@@ -53,7 +53,7 @@ import java.util.logging.Logger;
  * @author dmulloy2
  */
 public class PacketLogging implements CommandExecutor, PacketListener {
-	public static final String NAME = "packetlog";
+	public static final String PACKET_LOG_NAME = "packetlog";
 
 	private static MethodAccessor HEX_DUMP;
 

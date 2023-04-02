@@ -53,20 +53,5 @@ public class TimedTracker {
 		return this.observations.get();
 	}
 
-	/**
-	 * Retrieve an map (indexed by packet type) of all relevant statistics.
-	 *
-	 * @return The map of statistics.
-	 */
-	public synchronized Map<PacketType, StatisticsStream> getStatistics() {
-		final Map<PacketType, StatisticsStream> clone = new HashMap<>();
 
-		for (Entry<PacketType, StatisticsStream> entry : this.packets.entrySet()) {
-			clone.put(
-					entry.getKey(),
-					new StatisticsStream(entry.getValue())
-			);
-		}
-		return clone;
-	}
 }

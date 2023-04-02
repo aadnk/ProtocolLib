@@ -924,9 +924,9 @@ public class PacketType implements Serializable, Cloneable, Comparable<PacketTyp
 	}
 
 	private static PacketType find(Map<String, PacketType> map, String clazz) {
-		PacketType ret = map.get(clazz);
-		if (ret != null) {
-			return ret;
+		PacketType packetType = map.get(clazz);
+		if (packetType != null) {
+			return packetType;
 		}
 
 		// Check any aliases
@@ -1210,10 +1210,10 @@ public class PacketType implements Serializable, Cloneable, Comparable<PacketTyp
 			return true;
 
 		if (obj instanceof PacketType) {
-			PacketType other = (PacketType) obj;
-			return protocol == other.protocol &&
-				   sender == other.sender &&
-				   currentId == other.currentId;
+			PacketType otherPackets = (PacketType) obj;
+			return protocol == otherPackets.protocol &&
+				   sender == otherPackets.sender &&
+				   currentId == otherPackets.currentId;
 		}
 		return false;
 	}

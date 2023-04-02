@@ -133,14 +133,16 @@ public class ExactReflection {
 	// For recursion
 	private Field lookupField(Class<?> instanceClass, String fieldName) {
 		for (Field field : instanceClass.getDeclaredFields()) {
-			if ((this.forceAccess || Modifier.isPublic(field.getModifiers())) && field.getName().equals(fieldName)) {
+			boolean isAccessible = forceAccess || Modifier.isPublic(field.getModifiers());
+			boolean isMatchingField = field.getName().equals(fieldName);
+			if (isAccessible && isMatchingField) {
 				return field;
 			}
 		}
 
-		// Recursively find the correct field
-		if (instanceClass.getSuperclass() != null) {
-			return this.lookupField(instanceClass.getSuperclass(), fieldName);
+		Class<?> superClass = instanceClass.getSuperclass();
+		if (superClass != null) {
+			return lookupField(superClass, fieldName);
 		}
 
 		return null;

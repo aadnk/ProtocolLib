@@ -21,6 +21,9 @@ public abstract class AbstractFuzzyMember<T extends Member> implements AbstractF
 	protected int modifiersBanned;
 
 	protected Pattern nameRegex;
+
+	private static final int MAX_BITS = 31;
+
 	protected AbstractFuzzyMatcher<Class<?>> declaringMatcher = ClassTypeMatcher.MATCH_ALL;
 
 	/**
@@ -41,9 +44,10 @@ public abstract class AbstractFuzzyMember<T extends Member> implements AbstractF
 		this.sealed = true;
 	}
 
+
 	private static String getBitView(int value, int bits) {
-		if (bits < 0 || bits > 31) {
-			throw new IllegalArgumentException("Bits must be a value between 0 and 32");
+		if (bits < 0 || bits > MAX_BITS) {
+			throw new IllegalArgumentException("Bits must be a value between 0 and " + MAX_BITS);
 		}
 
 		// Extract our needed bits

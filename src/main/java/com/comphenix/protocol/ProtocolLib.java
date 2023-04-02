@@ -330,7 +330,7 @@ public class ProtocolLib extends JavaPlugin {
 			this.registerCommand(CommandProtocol.NAME, this.commandProtocol);
 			this.registerCommand(CommandPacket.NAME, this.commandPacket);
 			this.registerCommand(CommandFilter.NAME, this.commandFilter);
-			this.registerCommand(PacketLogging.NAME, this.packetLogging);
+			this.registerCommand(PacketLogging.PACKET_LOG_NAME, this.packetLogging);
 
 			// Player login and logout events
 			protocolManager.registerEvents(manager, this);
@@ -381,30 +381,29 @@ public class ProtocolLib extends JavaPlugin {
 
 	// Used to check Minecraft version
 	private MinecraftVersion verifyMinecraftVersion() {
-		MinecraftVersion minimum = new MinecraftVersion(ProtocolLibrary.MINIMUM_MINECRAFT_VERSION);
-		MinecraftVersion maximum = new MinecraftVersion(ProtocolLibrary.MAXIMUM_MINECRAFT_VERSION);
+		MinecraftVersion minimumVersion = new MinecraftVersion(ProtocolLibrary.MINIMUM_MINECRAFT_VERSION);
+		MinecraftVersion maximumVersion = new MinecraftVersion(ProtocolLibrary.MAXIMUM_MINECRAFT_VERSION);
 
 		try {
-			MinecraftVersion current = new MinecraftVersion(this.getServer());
+			MinecraftVersion currentVersion = new MinecraftVersion(this.getServer());
 
 			// Skip certain versions
-			if (!config.getIgnoreVersionCheck().equals(current.getVersion())) {
+			if (!config.getIgnoreVersionCheck().equals(currentVersion.getVersion())) {
 				// We'll just warn the user for now
-				if (current.compareTo(minimum) < 0) {
-					logger.warning("Version " + current + " is lower than the minimum " + minimum);
+				if (currentVersion.compareTo(minimumVersion) < 0) {
+					logger.warning("Version " + currentVersion + " is lower than the minimumVersion " + minimumVersion);
 				}
-				if (current.compareTo(maximum) > 0) {
-					logger.warning("Version " + current + " has not yet been tested! Proceed with caution.");
+				if (currentVersion.compareTo(maximumVersion) > 0) {
+					logger.warning("Version " + currentVersion + " has not yet been tested! Proceed with caution.");
 				}
 			}
-
-			return current;
+			return currentVersion;
 		} catch (Exception e) {
 			reporter.reportWarning(this,
-					Report.newBuilder(REPORT_CANNOT_PARSE_MINECRAFT_VERSION).error(e).messageParam(maximum));
+					Report.newBuilder(REPORT_CANNOT_PARSE_MINECRAFT_VERSION).error(e).messageParam(maximumVersion));
 
 			// Unknown version - just assume it is the latest
-			return maximum;
+			return maximumVersion;
 		}
 	}
 

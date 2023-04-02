@@ -36,7 +36,7 @@ public class ProtocolConfig {
 	private static final String LAST_UPDATE_FILE = "lastupdate";
 
 	private static final String SECTION_GLOBAL = "global";
-	private static final String SECTION_AUTOUPDATER = "auto updater";
+	private static final String SECTION_AUTO_UPDATER = "auto updater";
 
 	private static final String METRICS_ENABLED = "metrics";
 
@@ -50,7 +50,7 @@ public class ProtocolConfig {
 	private static final String SUPPRESSED_REPORTS = "suppressed reports";
 
 	private static final String UPDATER_NOTIFY = "notify";
-	private static final String UPDATER_DOWNLAD = "download";
+	private static final String UPDATER_DOWNLOAD = "download";
 	private static final String UPDATER_DELAY = "delay";
 
 	// Defaults
@@ -152,7 +152,7 @@ public class ProtocolConfig {
 			global = config.getConfigurationSection(SECTION_GLOBAL);
 		}
 		if (global != null) {
-			updater = global.getConfigurationSection(SECTION_AUTOUPDATER);
+			updater = global.getConfigurationSection(SECTION_AUTO_UPDATER);
 			if (updater.getValues(true).isEmpty()) {
 				plugin.getLogger().warning("Updater section is missing, regenerate your config!");
 			}
@@ -245,7 +245,7 @@ public class ProtocolConfig {
 	 * @return TRUE if it should, FALSE otherwise.
 	 */
 	public boolean isAutoDownload() {
-		return updater != null && getUpdaterValue(UPDATER_DOWNLAD, false);
+		return updater != null && getUpdaterValue(UPDATER_DOWNLOAD, false);
 	}
 
 	/**

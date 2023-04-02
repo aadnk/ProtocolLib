@@ -350,7 +350,6 @@ public class CommandFilter extends CommandBase {
 			initalizeScript();
 		}
 	}
-	
 	/*
 	 * Description: Adds or removes a simple packet filter.
        Usage:       /<command> add|remove name [packet IDs]
@@ -358,7 +357,7 @@ public class CommandFilter extends CommandBase {
 	@Override
 	protected boolean handleCommand(CommandSender sender, String[] args) {
 		checkScriptStatus();
-		
+
 		if (!config.isDebug()) {
 			sender.sendMessage(ChatColor.RED + "Debug mode must be enabled in the configuration first!");
 			return true;
@@ -367,93 +366,101 @@ public class CommandFilter extends CommandBase {
 			sender.sendMessage(ChatColor.RED + "JavaScript engine was not present. Filter system is disabled.");
 			return true;
 		}
-		
+
 		final SubCommand command = parseCommand(args, 0);
 		final String name = args[1];
-		
+
 		switch (command) {
 			case ADD:
-				// Never overwrite an existing filter
-				if (findFilter(name) != null) {
-					sender.sendMessage(ChatColor.RED + "Filter " + name + " already exists. Remove it first.");
-					return true;
-				}
-				
-				// Prepare the input to the packet type parser
-				Deque<String> rangeArguments = toQueue(args, 2);
-				
-				final PacketTypeParser parser = new PacketTypeParser();
-				final Set<PacketType> packets = parser.parseTypes(rangeArguments, PacketTypeParser.DEFAULT_MAX_RANGE);
-				sender.sendMessage("Enter filter program ('}' to complete or CANCEL):");
-				
-				// Make sure we can use the conversable interface
-				if (sender instanceof Conversable) {
-					final MultipleLinesPrompt prompt =
-							new MultipleLinesPrompt(new CompilationSuccessCanceller(), "function(event, packet) {");
-					
-					new ConversationFactory(plugin).
-						withFirstPrompt(prompt).
-						withEscapeSequence("CANCEL").
-						withLocalEcho(false).
-						addConversationAbandonedListener(new ConversationAbandonedListener() {
-							@Override
-							public void conversationAbandoned(ConversationAbandonedEvent event) {
-								try {
-									final Conversable whom = event.getContext().getForWhom();
-									
-									if (event.gracefulExit()) {
-										String predicate = prompt.removeAccumulatedInput(event.getContext());
-										Filter filter = new Filter(name, predicate, packets);
-	
-										// Print the last line as well
-										whom.sendRawMessage(prompt.getPromptText(event.getContext()));
-										
-										try {
-											// Force early compilation
-											filter.compile(engine);
-											
-											filters.add(filter);
-											whom.sendRawMessage(ChatColor.GOLD + "Added filter " + name);
-										} catch (ScriptException e) {
-											e.printStackTrace();
-											whom.sendRawMessage(ChatColor.GOLD + "Compilation error: " + e.getMessage());
-										}
-									} else {
-										// Too bad
-										whom.sendRawMessage(ChatColor.RED + "Cancelled filter.");
-									}
-								} catch (Exception e) {
-									reporter.reportDetailed(this,
-											Report.newBuilder(REPORT_CANNOT_HANDLE_CONVERSATION).error(e).callerParam(event)
-									);
-								}
-							}
-						}).
-						buildConversation((Conversable) sender).
-						begin();
-				} else {
-					sender.sendMessage(ChatColor.RED + "Only console and players are supported!");
-				}
-				
+				handleAddFilter(sender, name, args);
 				break;
-				
+
 			case REMOVE:
-				Filter filter = findFilter(name);
-				
-				// See if it exists before we remove it
-				if (filter != null) {
-					filter.close(engine);
-					filters.remove(filter);
-					sender.sendMessage(ChatColor.GOLD + "Removed filter " + name);
-				} else {
-					sender.sendMessage(ChatColor.RED + "Unable to find a filter by the name " + name);
-				}
+				handleRemoveFilter(sender, name);
 				break;
 		}
-		
+
 		return true;
 	}
-	
+
+	private void handleAddFilter(CommandSender sender, String name, String[] args) {
+		// Never overwrite an existing filter
+		if (findFilter(name) != null) {
+			sender.sendMessage(ChatColor.RED + "Filter " + name + " already exists. Remove it first.");
+			return;
+		}
+
+		// Prepare the input to the packet type parser
+		Deque<String> rangeArguments = toQueue(args, 2);
+
+		final PacketTypeParser parser = new PacketTypeParser();
+		final Set<PacketType> packets = parser.parseTypes(rangeArguments, PacketTypeParser.DEFAULT_MAX_RANGE);
+		sender.sendMessage("Enter filter program ('}' to complete or CANCEL):");
+
+		// Make sure we can use the conversable interface
+		if (sender instanceof Conversable) {
+			final MultipleLinesPrompt prompt =
+					new MultipleLinesPrompt(new CompilationSuccessCanceller(), "function(event, packet) {");
+
+			new ConversationFactory(plugin).
+					withFirstPrompt(prompt).
+					withEscapeSequence("CANCEL").
+					withLocalEcho(false).
+					addConversationAbandonedListener(new ConversationAbandonedListener() {
+						@Override
+						public void conversationAbandoned(ConversationAbandonedEvent event) {
+							try {
+								final Conversable whom = event.getContext().getForWhom();
+
+								if (event.gracefulExit()) {
+									String predicate = prompt.removeAccumulatedInput(event.getContext());
+									Filter filter = new Filter(name, predicate, packets);
+
+									// Print the last line as well
+									whom.sendRawMessage(prompt.getPromptText(event.getContext()));
+
+									try {
+										// Force early compilation
+										filter.compile(engine);
+
+										filters.add(filter);
+										whom.sendRawMessage(ChatColor.GOLD + "Added filter " + name);
+									} catch (ScriptException e) {
+										e.printStackTrace();
+										whom.sendRawMessage(ChatColor.GOLD + "Compilation error: " + e.getMessage());
+									}
+								} else {
+									// Too bad
+									whom.sendRawMessage(ChatColor.RED + "Cancelled filter.");
+								}
+							} catch (Exception e) {
+								reporter.reportDetailed(this,
+										Report.newBuilder(REPORT_CANNOT_HANDLE_CONVERSATION).error(e).callerParam(event)
+								);
+							}
+						}
+					}).
+					buildConversation((Conversable) sender).
+					begin();
+		} else {
+			sender.sendMessage(ChatColor.RED + "Only console and players are supported!");
+		}
+	}
+
+	private void handleRemoveFilter(CommandSender sender, String name) {
+		Filter filter = findFilter(name);
+
+		// See if it exists before we remove it
+		if (filter != null) {
+			filter.close(engine);
+			filters.remove(filter);
+			sender.sendMessage(ChatColor.GOLD + "Removed filter " + name);
+		} else {
+			sender.sendMessage(ChatColor.RED + "Unable to find a filter by the name " + name);
+		}
+	}
+
+
 	/**
 	 * Lookup a filter by its name.
 	 * @param name - the filter name.
