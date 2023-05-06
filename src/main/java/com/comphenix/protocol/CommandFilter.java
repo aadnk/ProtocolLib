@@ -2,6 +2,7 @@ package com.comphenix.protocol;
 
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -26,7 +27,6 @@ import com.comphenix.protocol.error.ErrorReporter;
 import com.comphenix.protocol.error.Report;
 import com.comphenix.protocol.error.ReportType;
 import com.comphenix.protocol.events.PacketEvent;
-import com.google.common.collect.Sets;
 
 /**
  * A command to apply JavaScript filtering to the packet command.
@@ -79,7 +79,7 @@ public class CommandFilter extends CommandBase {
 		public Filter(String name, String predicate, Set<PacketType> packets) {
 			this.name = name;
 			this.predicate = predicate;
-			this.packets = Sets.newHashSet(packets);
+			this.packets = new HashSet<>(packets);
 		}
 		
 		/**
@@ -103,7 +103,7 @@ public class CommandFilter extends CommandBase {
 		 * @return Set of packets this filter applies to.
 		 */
 		public Set<PacketType> getRanges() {
-			return Sets.newHashSet(packets);
+			return new HashSet<>(packets);
 		}
 		
 		/**

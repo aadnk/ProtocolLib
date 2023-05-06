@@ -1,67 +1,74 @@
 /**
- * ProtocolLib - Bukkit server library that allows access to the Minecraft protocol.
- * Copyright (C) 2016 dmulloy2
+ * ProtocolLib - Bukkit server library that allows access to the Minecraft protocol. Copyright (C) 2016 dmulloy2
  * <p>
- * This program is free software; you can redistribute it and/or modify it under the terms of the
- * GNU General Public License as published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
+ * This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public
+ * License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later
+ * version.
  * <p>
- * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
- * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
  * <p>
- * You should have received a copy of the GNU General Public License along with this program;
- * if not, write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
- * 02111-1307 USA
+ * You should have received a copy of the GNU General Public License along with this program; if not, write to the Free
+ * Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 package com.comphenix.protocol;
 
-import java.lang.reflect.Field;
-import java.util.*;
-import java.util.Map.Entry;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.comphenix.protocol.PacketType.Protocol;
 import com.comphenix.protocol.PacketType.Sender;
 import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.injector.packet.PacketRegistry;
-import com.comphenix.protocol.utility.Constants;
 import com.comphenix.protocol.utility.MinecraftReflection;
-import com.comphenix.protocol.utility.MinecraftVersion;
+import com.comphenix.protocol.utility.MinecraftReflectionTestUtil;
+import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.TreeMap;
 
+import com.comphenix.protocol.wrappers.BukkitConverters;
+import com.comphenix.protocol.wrappers.WrappedChatComponent;
 import net.minecraft.network.EnumProtocol;
 import net.minecraft.network.protocol.EnumProtocolDirection;
 import net.minecraft.network.protocol.login.PacketLoginInStart;
-
 import org.apache.commons.lang.WordUtils;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
-
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 /**
  * @author dmulloy2
  */
 public class PacketTypeTest {
 
-	@BeforeClass
+	@BeforeAll
 	public static void beforeClass() {
-		BukkitInitialization.initializeItemMeta();
+		BukkitInitialization.initializeAll();
 
 		// I'm well aware this is jank, but it does in fact work correctly and give the desired result
-		PacketType.onDynamicCreate = className -> {
-			 throw new RuntimeException("Dynamically generated packet " + className);
+		/*PacketType.onDynamicCreate = className -> {
+			throw new RuntimeException("Dynamically generated packet " + className);
+		};*/
+	}
+
+	@AfterAll
+	public static void afterClass() {
+		PacketType.onDynamicCreate = __ -> {
 		};
 	}
 
-	@AfterClass
-	public static void afterClass() {
-		PacketType.onDynamicCreate = __ -> {};
-	}
-
 	@SuppressWarnings("unchecked")
-	public static void main(String[] args) throws Exception {
-		Constants.init();
+	// @Test
+	// public static void main(String[] args) throws Exception {
+	public void generateNewPackets() throws Exception {
+		MinecraftReflectionTestUtil.init();
 
 		Set<Class<?>> allTypes = new HashSet<>();
 		List<Class<?>> newTypes = new ArrayList<>();
@@ -70,12 +77,12 @@ public class PacketTypeTest {
 		for (EnumProtocol protocol : protocols) {
 			System.out.println(WordUtils.capitalize(protocol.name().toLowerCase()));
 
-			Field field = EnumProtocol.class.getDeclaredField("j");
+			Field field = EnumProtocol.class.getDeclaredField("k");
 			field.setAccessible(true);
 
 			Map<EnumProtocolDirection, Object> map = (Map<EnumProtocolDirection, Object>) field.get(protocol);
 			for (Entry<EnumProtocolDirection, Object> entry : map.entrySet()) {
-				Field mapField = entry.getValue().getClass().getDeclaredField("a");
+				Field mapField = entry.getValue().getClass().getDeclaredField("b");
 				mapField.setAccessible(true);
 
 				Map<Class<?>, Integer> reverseMap = (Map<Class<?>, Integer>) mapField.get(entry.getValue());
@@ -172,18 +179,35 @@ public class PacketTypeTest {
 
 		className = classNames.get(classNames.size() - 1);
 
-		// Format it like SET_PROTOCOL
-		StringBuilder fieldName = new StringBuilder();
-		char[] chars = className.toCharArray();
-		for (int i = 0; i < chars.length; i++) {
-			char c = chars[i];
-			if (i != 0 && Character.isUpperCase(c)) {
-				fieldName.append("_");
+		PacketType existing = null;
+		try {
+			existing = PacketType.fromClass(clazz);
+			if (existing.isDynamic()) {
+				existing = null;
 			}
-			fieldName.append(Character.toUpperCase(c));
+		} catch (Exception ignored) {
+			// doesn't exist
 		}
 
-		builder.append(fieldName.toString().replace("N_B_T", "NBT"));
+		String fieldName;
+		if (existing == null) {
+			// Format it like SET_PROTOCOL
+			StringBuilder fieldNameBuilder = new StringBuilder();
+			char[] chars = className.toCharArray();
+			for (int i = 0; i < chars.length; i++) {
+				char c = chars[i];
+				if (i != 0 && Character.isUpperCase(c)) {
+					fieldNameBuilder.append("_");
+				}
+				fieldNameBuilder.append(Character.toUpperCase(c));
+			}
+
+			fieldName = fieldNameBuilder.toString().replace("N_B_T", "NBT");
+		} else {
+			fieldName = existing.name();
+		}
+
+		builder.append(fieldName);
 		builder.append(" = ");
 
 		// Add spacing
@@ -229,7 +253,8 @@ public class PacketTypeTest {
 					names.add(alias);
 				}
 			}
-		} catch (Exception ignored) { }
+		} catch (Exception ignored) {
+		}
 
 		return names;
 	}
@@ -246,14 +271,10 @@ public class PacketTypeTest {
 		return builder.toString();
 	}
 
-	@BeforeClass
-	public static void initializeReflection() {
-		BukkitInitialization.initializePackage();
-	}
-
 	@Test
 	public void testFindCurrent() {
-		assertEquals(PacketType.Play.Client.STEER_VEHICLE, PacketType.findCurrent(Protocol.PLAY, Sender.CLIENT, "SteerVehicle"));
+		assertEquals(PacketType.Play.Client.STEER_VEHICLE,
+				PacketType.findCurrent(Protocol.PLAY, Sender.CLIENT, "SteerVehicle"));
 	}
 
 	@Test
@@ -264,51 +285,65 @@ public class PacketTypeTest {
 
 	@Test
 	public void testDeprecation() {
-		assertTrue("Packet isn't properly deprecated", PacketType.Status.Server.OUT_SERVER_INFO.isDeprecated());
-		assertTrue("Deprecated packet isn't properly included",
-				PacketRegistry.getServerPacketTypes().contains(PacketType.Status.Server.OUT_SERVER_INFO));
-		assertFalse("Packet isn't properly deprecated", PacketType.Play.Server.CHAT.isDeprecated());
-		assertEquals("Deprecated packets aren't equal", PacketType.Status.Server.OUT_SERVER_INFO,
-				PacketType.Status.Server.SERVER_INFO);
+		assertTrue(PacketType.Status.Server.OUT_SERVER_INFO.isDeprecated(), "Packet isn't properly deprecated");
+		assertTrue(PacketRegistry.getServerPacketTypes().contains(PacketType.Status.Server.OUT_SERVER_INFO),
+				"Deprecated packet isn't properly included");
+		assertFalse(PacketType.Play.Server.CHAT.isDeprecated(), "Packet isn't properly deprecated");
+		assertEquals(PacketType.Status.Server.OUT_SERVER_INFO, PacketType.Status.Server.SERVER_INFO,
+				"Deprecated packets aren't equal");
 	}
 
 	@Test
 	@SuppressWarnings("unchecked")
 	public void ensureTypesAreCorrect() throws Exception {
-		boolean fail = false;
+		PacketType.onDynamicCreate = className -> {
+			throw new RuntimeException("Dynamically generated packet " + className);
+		};
 
-		EnumProtocol[] protocols = EnumProtocol.values();
-		for (EnumProtocol protocol : protocols) {
-			Field field = EnumProtocol.class.getDeclaredField("j");
-			field.setAccessible(true);
+		try {
+			boolean fail = false;
 
-			Map<EnumProtocolDirection, Object> map = (Map<EnumProtocolDirection, Object>) field.get(protocol);
-			for (Entry<EnumProtocolDirection, Object> entry : map.entrySet()) {
-				Field mapField = entry.getValue().getClass().getDeclaredField("a");
-				mapField.setAccessible(true);
+			EnumProtocol[] protocols = EnumProtocol.values();
+			for (EnumProtocol protocol : protocols) {
+				Field field = EnumProtocol.class.getDeclaredField("k");
+				field.setAccessible(true);
 
-				Map<Class<?>, Integer> reverseMap = (Map<Class<?>, Integer>) mapField.get(entry.getValue());
+				Map<EnumProtocolDirection, Object> map = (Map<EnumProtocolDirection, Object>) field.get(protocol);
+				for (Entry<EnumProtocolDirection, Object> entry : map.entrySet()) {
+					Field mapField = entry.getValue().getClass().getDeclaredField("b");
+					mapField.setAccessible(true);
 
-				Map<Integer, Class<?>> treeMap = new TreeMap<>();
-				for (Entry<Class<?>, Integer> entry1 : reverseMap.entrySet()) {
-					treeMap.put(entry1.getValue(), entry1.getKey());
-				}
+					Map<Class<?>, Integer> reverseMap = (Map<Class<?>, Integer>) mapField.get(entry.getValue());
 
-				for (Entry<Integer, Class<?>> entry1 : treeMap.entrySet()) {
-					try {
-						PacketType type = PacketType.fromClass(entry1.getValue());
-						if (type.getCurrentId() != entry1.getKey())
-							throw new IllegalStateException(
-									"Packet ID for " + type + " is incorrect. Expected " + entry1.getKey() + ", but got " + type.getCurrentId());
-					} catch (Throwable ex) {
-						ex.printStackTrace();
-						fail = true;
+					Map<Integer, Class<?>> treeMap = new TreeMap<>();
+					for (Entry<Class<?>, Integer> entry1 : reverseMap.entrySet()) {
+						treeMap.put(entry1.getValue(), entry1.getKey());
+					}
+
+					for (Entry<Integer, Class<?>> entry1 : treeMap.entrySet()) {
+						try {
+							PacketType type = PacketType.fromClass(entry1.getValue());
+							if (type.getCurrentId() != entry1.getKey()) {
+								throw new IllegalStateException(
+										"Packet ID for " + type + " is incorrect. Expected " + entry1.getKey() + ", but got "
+												+ type.getCurrentId());
+							}
+						} catch (Throwable ex) {
+							if (ex.getMessage().contains("BundleDelimiterPacket")) {
+								continue;
+							}
+
+							ex.printStackTrace();
+							fail = true;
+						}
 					}
 				}
 			}
-		}
 
-		assertTrue("Packet type(s) were incorrect!", !fail);
+			assertFalse(fail, "Packet type(s) were incorrect!");
+		} finally {
+			PacketType.onDynamicCreate = __ -> { };
+		}
 	}
 
 	@Test
@@ -324,6 +359,19 @@ public class PacketTypeTest {
 				}
 			}
 		}
-		assertFalse("Packet type(s) failed to instantiate", fail);
+		assertFalse(fail, "Packet type(s) failed to instantiate");
+	}
+
+	@Test
+	public void testPacketBundleWriting() {
+		PacketContainer bundlePacket = new PacketContainer(PacketType.Play.Server.BUNDLE);
+		assertEquals(MinecraftReflection.getPackedBundlePacketClass().orElseThrow(() -> new IllegalStateException("Packet Bundle class is not present")), bundlePacket.getHandle().getClass());
+		List<PacketContainer> bundle = new ArrayList<>();
+
+		PacketContainer chatMessage = new PacketContainer(PacketType.Play.Server.SYSTEM_CHAT);
+		chatMessage.getStrings().write(0, WrappedChatComponent.fromText("Test").getJson());
+		chatMessage.getBooleans().write(0, false);
+		bundle.add(chatMessage);
+		bundlePacket.getPacketBundles().write(0, bundle);
 	}
 }

@@ -183,18 +183,7 @@ public abstract class ConvertedMultimap<Key, VInner, VOuter> extends AbstractCon
 
 	@Override
 	public Collection<Entry<Key, VOuter>> entries() {
-		return ConvertedMap.convertedEntrySet(inner.entries(), 
-			new BiFunction<Key, VOuter, VInner>() {
-				public VInner apply(Key key, VOuter outer) {
-					return toInner(outer);
-				}
-			},
-			new BiFunction<Key, VInner, VOuter>() {
-				public VOuter apply(Key key, VInner inner) {
-					return toOuter(inner);
-				}
-			}
-		);
+		return ConvertedMap.convertedEntrySet(inner.entries(), (key, outer) -> toInner(outer), (key, inner) -> toOuter(inner));
 	}
 
 	@Override
@@ -215,10 +204,10 @@ public abstract class ConvertedMultimap<Key, VInner, VOuter> extends AbstractCon
     /**
      * Returns a string representation of this map.  The string representation
      * consists of a list of key-value mappings in the order returned by the
-     * map's <tt>entrySet</tt> view's iterator, enclosed in braces
-     * (<tt>"{}"</tt>).  Adjacent mappings are separated by the characters
-     * <tt>", "</tt> (comma and space).  Each key-value mapping is rendered as
-     * the key followed by an equals sign (<tt>"="</tt>) followed by the
+     * map's <code>entrySet</code> view's iterator, enclosed in braces
+     * (<code>"{}"</code>).  Adjacent mappings are separated by the characters
+     * <code>", "</code> (comma and space).  Each key-value mapping is rendered as
+     * the key followed by an equals sign (<code>"="</code>) followed by the
      * associated value.  Keys and values are converted to strings as by
      * {@link String#valueOf(Object)}.
      *

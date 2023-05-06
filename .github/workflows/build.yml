@@ -8,19 +8,21 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Setup java
-        uses: actions/setup-java@v2
-        with:
-          distribution: 'adopt'
-          java-version: '16'
-          check-latest: true
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      - name: Run maven build lifecycle
-        run: mvn --batch-mode clean test package
+      - name: Setup java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '19'
+          cache: 'gradle'
+
+      - name: Run gradle build lifecycle
+        run: ./gradlew build shadowJar --no-daemon
 
       - name: Upload plugin file
         uses: actions/upload-artifact@v2
         with:
-            name: ProtocolLib
-            path: target/ProtocolLib.jar
+          name: ProtocolLib
+          path: build/libs/ProtocolLib.jar

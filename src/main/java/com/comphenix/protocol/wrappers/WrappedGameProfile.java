@@ -1,11 +1,5 @@
 package com.comphenix.protocol.wrappers;
 
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
-
-import org.bukkit.OfflinePlayer;
-import org.bukkit.entity.Player;
-
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.error.PluginContext;
 import com.comphenix.protocol.error.Report;
@@ -17,9 +11,14 @@ import com.comphenix.protocol.reflect.accessors.FieldAccessor;
 import com.comphenix.protocol.reflect.accessors.MethodAccessor;
 import com.comphenix.protocol.utility.MinecraftReflection;
 import com.comphenix.protocol.wrappers.collection.ConvertedMultimap;
-import com.google.common.base.Charsets;
 import com.google.common.base.Objects;
 import com.google.common.collect.Multimap;
+import org.bukkit.OfflinePlayer;
+import org.bukkit.entity.Player;
+
+import java.nio.charset.StandardCharsets;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Represents a wrapper for a game profile.
@@ -35,16 +34,16 @@ public class WrappedGameProfile extends AbstractWrapper {
 	private static final ConstructorAccessor CREATE_UUID_STRING = Accessors.getConstructorAccessorOrNull(
 			GAME_PROFILE, UUID.class, String.class);
 
-	private static final FieldAccessor GET_UUID_STRING = Accessors.getFieldAcccessorOrNull(
+	private static final FieldAccessor GET_UUID_STRING = Accessors.getFieldAccessorOrNull(
 			GAME_PROFILE, "id", String.class);
 
-	private static final MethodAccessor GET_ID = Accessors.getMethodAcccessorOrNull(
+	private static final MethodAccessor GET_ID = Accessors.getMethodAccessorOrNull(
 			GAME_PROFILE, "getId");
-	private static final MethodAccessor GET_NAME = Accessors.getMethodAcccessorOrNull(
+	private static final MethodAccessor GET_NAME = Accessors.getMethodAccessorOrNull(
 			GAME_PROFILE, "getName");
-	private static final MethodAccessor GET_PROPERTIES = Accessors.getMethodAcccessorOrNull(
+	private static final MethodAccessor GET_PROPERTIES = Accessors.getMethodAccessorOrNull(
 			GAME_PROFILE, "getProperties");
-	private static final MethodAccessor IS_COMPLETE = Accessors.getMethodAcccessorOrNull(
+	private static final MethodAccessor IS_COMPLETE = Accessors.getMethodAccessorOrNull(
 			GAME_PROFILE, "isComplete");
 
 	// Fetching game profile
@@ -175,7 +174,7 @@ public class WrappedGameProfile extends AbstractWrapper {
 				.reportWarning(WrappedGameProfile.class, Report.newBuilder(REPORT_INVALID_UUID)
 				.rateLimit(1, TimeUnit.HOURS)
 				.messageParam(PluginContext.getPluginCaller(new Exception()), id));
-			return UUID.nameUUIDFromBytes(id.getBytes(Charsets.UTF_8));
+			return UUID.nameUUIDFromBytes(id.getBytes(StandardCharsets.UTF_8));
 		}
 	}
 

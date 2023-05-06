@@ -1,18 +1,16 @@
 package com.comphenix.protocol.wrappers;
 
-import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import javax.annotation.Nonnull;
 
 import com.comphenix.protocol.reflect.FieldAccessException;
-import com.comphenix.protocol.reflect.FieldUtils;
 import com.comphenix.protocol.reflect.accessors.FieldAccessor;
-import com.comphenix.protocol.reflect.accessors.ReadOnlyFieldAccessor;
 import com.comphenix.protocol.reflect.fuzzy.AbstractFuzzyMatcher;
 import com.comphenix.protocol.reflect.fuzzy.FuzzyMatchers;
 import com.comphenix.protocol.utility.ClassSource;
@@ -39,7 +37,7 @@ public class TroveWrapper {
 	 * @param accessor - the accessor.
 	 * @return The read only accessor.
 	 */
-	public static ReadOnlyFieldAccessor wrapMapField(final FieldAccessor accessor) {
+	public static FieldAccessor wrapMapField(final FieldAccessor accessor) {
 		return wrapMapField(accessor, null);
 	}
 	
@@ -49,8 +47,8 @@ public class TroveWrapper {
 	 * @param noEntryTransform - transform the no entry value, or NULL to ignore.
 	 * @return The read only accessor.
 	 */
-	public static ReadOnlyFieldAccessor wrapMapField(final FieldAccessor accessor, final Function<Integer, Integer> noEntryTransform) {
-		return new ReadOnlyFieldAccessor() {
+	public static FieldAccessor wrapMapField(final FieldAccessor accessor, final Function<Integer, Integer> noEntryTransform) {
+		/*return new ReadOnlyFieldAccessor() {
 			@Override
 			public Object get(Object instance) {
 				Object troveMap = accessor.get(instance);
@@ -64,43 +62,8 @@ public class TroveWrapper {
 			public Field getField() {
 				return accessor.getField();
 			}
-		};
-	}
-	
-	/**
-	 * Retrieve a read-only field accessor that automatically wraps the underlying Trove instance.
-	 * @param accessor - the accessor.
-	 * @return The read only accessor.
-	 */
-	public static ReadOnlyFieldAccessor wrapSetField(final FieldAccessor accessor) {
-		return new ReadOnlyFieldAccessor() {
-			@Override
-			public Object get(Object instance) {
-				return getDecoratedSet(accessor.get(instance));
-			}
-			@Override
-			public Field getField() {
-				return accessor.getField();
-			}
-		};
-	}
-	
-	/**
-	 * Retrieve a read-only field accessor that automatically wraps the underlying Trove instance.
-	 * @param accessor - the accessor.
-	 * @return The read only accessor.
-	 */
-	public static ReadOnlyFieldAccessor wrapListField(final FieldAccessor accessor) {
-		return new ReadOnlyFieldAccessor() {
-			@Override
-			public Object get(Object instance) {
-				return getDecoratedList(accessor.get(instance));
-			}
-			@Override
-			public Field getField() {
-				return accessor.getField();
-			}
-		};
+		};*/
+		return null;
 	}
 	
 	/**
@@ -159,28 +122,6 @@ public class TroveWrapper {
 	}
 	
 	/**
-	 * Transform the no entry value in the given map.
-	 * @param troveMap - the trove map.
-	 * @param transform - the transform.
-	 */
-	public static void transformNoEntryValue(Object troveMap, Function<Integer, Integer> transform) {
-		// Check for stupid no_entry_values
-		try {
-			Field field = FieldUtils.getField(troveMap.getClass(), "no_entry_value", true);
-			int current = (Integer) FieldUtils.readField(field, troveMap, true);
-			int transformed = transform.apply(current);
-			
-			if (current != transformed) {
-				FieldUtils.writeField(field, troveMap, transformed);
-			}
-		} catch (IllegalArgumentException e) {
-			throw new CannotFindTroveNoEntryValue(e);
-		} catch (IllegalAccessException e) {
-			throw new IllegalStateException("Cannot access reflection.", e);
-		}
-	}
-	
-	/**
 	 * Retrieve the correct class source from the given class.
 	 * @param clazz - the class source.
 	 * @return The class source, or NULL if not found.
@@ -202,17 +143,11 @@ public class TroveWrapper {
 	private static Object getDecorated(@Nonnull Object trove) {
 		if (trove == null)
 			throw new IllegalArgumentException("trove instance cannot be non-null.");
-		
+
 		AbstractFuzzyMatcher<Class<?>> match = FuzzyMatchers.matchSuper(trove.getClass());
-		Class<?> decorators = null;
-		
-		try {
-			// Attempt to get decorator class
-			decorators = getClassSource(trove.getClass()).loadClass("TDecorators");
-		} catch (ClassNotFoundException e) {
-			throw new IllegalStateException(e.getMessage(), e);
-		}
-		
+		Class<?> decorators = getClassSource(trove.getClass()).loadClass("TDecorator")
+			.orElseThrow(() -> new IllegalStateException("TDecorators class not found"));
+
 		// Find an appropriate wrapper method in TDecorators
 		for (Method method : decorators.getMethods()) {
 			Class<?>[] types = method.getParameterTypes();

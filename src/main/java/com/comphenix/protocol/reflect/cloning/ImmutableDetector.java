@@ -28,6 +28,7 @@ import java.security.PublicKey;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 import javax.crypto.SecretKey;
@@ -35,7 +36,6 @@ import javax.crypto.SecretKey;
 import com.comphenix.protocol.utility.MinecraftReflection;
 import com.comphenix.protocol.utility.MinecraftVersion;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import com.google.common.primitives.Primitives;
 
 /**
@@ -55,19 +55,19 @@ public class ImmutableDetector implements Cloner {
 			SecretKey.class, PublicKey.class
 	);
 
-	private static final Set<Class<?>> immutableNMS = Sets.newConcurrentHashSet();
+	private static final Set<Class<?>> immutableNMS = ConcurrentHashMap.newKeySet();
 
 	static {
 		add(MinecraftReflection::getGameProfileClass);
 		add(MinecraftReflection::getDataWatcherSerializerClass);
 		add(MinecraftReflection::getBlockClass);
 		add(MinecraftReflection::getItemClass);
-		add("sounds.SoundEffect", "SoundEffect");
+		add("sounds.SoundEffect", "sounds.SoundEvents", "SoundEffect");
 
 		if (MinecraftVersion.AQUATIC_UPDATE.atOrAbove()) {
 			add(MinecraftReflection::getFluidTypeClass);
 			add(MinecraftReflection::getParticleTypeClass);
-			add("core.particles.Particle", "Particle");
+			add("core.particles.Particle","core.particles.ParticleType", "Particle");
 		}
 
 		if (MinecraftVersion.VILLAGE_UPDATE.atOrAbove()) {
@@ -76,11 +76,14 @@ public class ImmutableDetector implements Cloner {
 			add("world.entity.npc.VillagerProfession", "VillagerProfession");
 		}
 
+		add("world.entity.animal.CatVariant");
+		add("world.entity.animal.FrogVariant");
+
 		// TODO automatically detect the technically-not-an-enum enums that Mojang is so fond of
 		// Would also probably go in tandem with having the FieldCloner use this
 
 		if (MinecraftVersion.NETHER_UPDATE.atOrAbove()) {
-			add("core.IRegistry", "IRegistry");
+			add("core.IRegistry", "core.Registry", "IRegistry");
 		}
 
 		if (MinecraftVersion.NETHER_UPDATE_2.atOrAbove()) {

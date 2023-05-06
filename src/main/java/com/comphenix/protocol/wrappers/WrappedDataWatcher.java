@@ -130,7 +130,7 @@ public class WrappedDataWatcher extends AbstractWrapper implements Iterable<Wrap
 		// Mojang added difficulty to lightning strikes, so this'll have to do
 		if (eggConstructor == null) {
 			eggConstructor = Accessors.getConstructorAccessor(
-					MinecraftReflection.getMinecraftClass("world.entity.projectile.EntityEgg", "EntityEgg"),
+					MinecraftReflection.getMinecraftClass("world.entity.projectile.EntityEgg", "world.entity.projectile.ThrownEgg", "EntityEgg"),
 					MinecraftReflection.getNmsWorldClass(), double.class, double.class, double.class
 			);
 		}
@@ -329,16 +329,6 @@ public class WrappedDataWatcher extends AbstractWrapper implements Iterable<Wrap
 	}
 
 	/**
-	 * Get a watched string.
-	 * 
-	 * @param index - index of the watched string.
-	 * @return The watched string, or NULL if this value doesn't exist.
-	 */
-	public WrappedChunkCoordinate getChunkCoordinate(int index) {
-		return (WrappedChunkCoordinate) getObject(index);
-	}
-
-	/**
 	 * Retrieve a watchable object by index.
 	 * 
 	 * @param index Index of the object to retrieve.
@@ -495,7 +485,7 @@ public class WrappedDataWatcher extends AbstractWrapper implements Iterable<Wrap
 					.build();
 			List<Method> methods = fuzzy.getMethodList(contract);
 			for (Method method : methods) {
-				if (method.getName().equals("set") || method.getName().equals("watch")) {
+				if (method.getName().equals("set") || method.getName().equals("watch") || method.getName().equals("b")) {
 					SETTER = Accessors.getMethodAccessor(method);
 				} else {
 					REGISTER = Accessors.getMethodAccessor(method);
@@ -748,7 +738,7 @@ public class WrappedDataWatcher extends AbstractWrapper implements Iterable<Wrap
 		public Serializer getSerializer() {
 			if (getSerializer == null) {
 				getSerializer = Accessors.getMethodAccessor(FuzzyReflection.fromClass(HANDLE_TYPE, true)
-						.getMethodByParameters("getSerializer", MinecraftReflection.getDataWatcherSerializerClass(), new Class[0]));
+						.getMethodByReturnTypeAndParameters("getSerializer", MinecraftReflection.getDataWatcherSerializerClass(), new Class[0]));
 			}
 
 			Object serializer = getSerializer.invoke(handle);
@@ -951,8 +941,8 @@ public class WrappedDataWatcher extends AbstractWrapper implements Iterable<Wrap
 
 		/**
 		 * Gets the first serializer associated with a given class and optional state.
-		 * 
-		 * <p><b>Note</b>: If the serializer is optional, values <i>must<i> be
+		 * <br/>
+		 * <b>Note</b>: If the serializer is optional, values <i>must</i> be
 		 * wrapped in an {@link Optional}
 		 *
 		 * @param clazz Class to find serializer for

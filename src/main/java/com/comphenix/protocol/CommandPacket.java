@@ -22,6 +22,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -34,25 +35,17 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
-import com.comphenix.protocol.utility.ByteBuddyGenerated;
 import com.comphenix.protocol.PacketType.Sender;
 import com.comphenix.protocol.concurrency.PacketTypeSet;
 import com.comphenix.protocol.error.ErrorReporter;
 import com.comphenix.protocol.error.Report;
 import com.comphenix.protocol.error.ReportType;
 import com.comphenix.protocol.events.ListeningWhitelist;
-import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.events.PacketEvent;
 import com.comphenix.protocol.events.PacketListener;
-import com.comphenix.protocol.reflect.EquivalentConverter;
-import com.comphenix.protocol.reflect.PrettyPrinter;
-import com.comphenix.protocol.reflect.PrettyPrinter.ObjectPrinter;
 import com.comphenix.protocol.utility.ChatExtensions;
 import com.comphenix.protocol.utility.HexDumper;
-import com.comphenix.protocol.utility.MinecraftReflection;
-import com.comphenix.protocol.wrappers.BukkitConverters;
 import com.google.common.collect.MapMaker;
-import com.google.common.collect.Sets;
 
 /**
  * Handles the "packet" debug command.
@@ -121,13 +114,7 @@ class CommandPacket extends CommandBase {
 	 * @return TRUE if the message was sent successfully, FALSE otherwise.
 	 */
 	public void sendMessageSilently(CommandSender receiver, String message) {
-		try {
-			chatter.sendMessageSilently(receiver, message);
-		} catch (InvocationTargetException e) {
-			reporter.reportDetailed(this, 
-					Report.newBuilder(REPORT_CANNOT_SEND_MESSAGE).error(e).callerParam(receiver, message)
-			);
-		}
+		chatter.sendMessageSilently(receiver, message);
 	}
 	
 	/**
@@ -136,13 +123,7 @@ class CommandPacket extends CommandBase {
 	 * @param permission - permission required to receieve the message. NULL to target everyone.
 	 */
 	public void broadcastMessageSilently(String message, String permission) {
-		try {
-			chatter.broadcastMessageSilently(message, permission);
-		} catch (InvocationTargetException e) {
-			reporter.reportDetailed(this, 
-					Report.newBuilder(REPORT_CANNOT_SEND_MESSAGE).error(e).callerParam(message, permission)
-			);
-		}
+		chatter.broadcastMessageSilently(message, permission);
 	}
 	
 	private void printPage(CommandSender sender, int pageIndex) {
@@ -306,7 +287,7 @@ class CommandPacket extends CommandBase {
 	}
 		
 	private Set<PacketType> filterTypes(Set<PacketType> types, Sender sender) {
-		Set<PacketType> result = Sets.newHashSet();
+		final Set<PacketType> result = new HashSet<>();
 		
 		for (PacketType type : types) {
 			if (type.getSender() == sender) {
@@ -461,19 +442,21 @@ class CommandPacket extends CommandBase {
 		return listener;
 	}
 	
-	private SubCommand parseCommand(Deque<String> arguments) {
-		String text = arguments.poll().toLowerCase();
-		
-		// Parse this too
-		if ("add".startsWith(text))
-			return SubCommand.ADD;
-		else if ("remove".startsWith(text))
-			return SubCommand.REMOVE;
-		else if ("names".startsWith(text)) 
-			return SubCommand.NAMES;
-		else if ("page".startsWith(text)) 
-			return SubCommand.PAGE;
-		else
-			throw new IllegalArgumentException(text + " is not a valid sub command. Must be add or remove.");
+	private SubCommand parseCommand(Deque<String> arguments)
+	{
+		final String text = arguments.remove().toLowerCase();
+
+		switch (text) {
+			case "add":
+				return SubCommand.ADD;
+			case "remove":
+				return SubCommand.REMOVE;
+			case "names":
+				return SubCommand.NAMES;
+			case "page":
+				return SubCommand.PAGE;
+			default:
+				throw new IllegalArgumentException(text + " is not a valid sub command. Must be add or remove.");
+		}
 	}
 }

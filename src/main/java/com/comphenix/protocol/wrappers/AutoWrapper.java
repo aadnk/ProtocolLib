@@ -16,7 +16,12 @@
  */
 package com.comphenix.protocol.wrappers;
 
-import java.lang.reflect.Field;
+import com.comphenix.protocol.reflect.accessors.Accessors;
+import com.comphenix.protocol.reflect.accessors.ConstructorAccessor;
+import com.comphenix.protocol.reflect.accessors.FieldAccessor;
+import com.google.common.base.Defaults;
+import com.google.common.base.Preconditions;
+
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -41,8 +46,17 @@ import com.comphenix.protocol.utility.MinecraftReflection;
  * @author dmulloy2
  */
 public class AutoWrapper<T> implements EquivalentConverter<T> {
+	private static final Object[] NO_ARGS = new Object[0];
+
 	private Map<Integer, Function<Object, Object>> wrappers = new HashMap<>();
 	private Map<Integer, Function<Object, Object>> unwrappers = new HashMap<>();
+
+	// lazy
+	private FieldAccessor[] nmsAccessors;
+	private FieldAccessor[] wrapperAccessors;
+
+	private Object[] nmsDefaultArgs;
+	private ConstructorAccessor nmsInstanceCreator;
 
 	private Class<T> wrapperClass;
 	private Class<?> nmsClass;
@@ -60,6 +74,10 @@ public class AutoWrapper<T> implements EquivalentConverter<T> {
 		return wrap(wrapperClass, MinecraftReflection.getMinecraftClass(nmsClassName));
 	}
 
+	public static <T> AutoWrapper<T> wrap(Class<T> wrapperClass, String nmsClassName, String... aliases) {
+		return wrap(wrapperClass, MinecraftReflection.getMinecraftClass(nmsClassName, aliases));
+	}
+
 	public AutoWrapper<T> field(int index, Function<Object, Object> wrapper, Function<Object, Object> unwrapper) {
 		wrappers.put(index, wrapper);
 		unwrappers.put(index, unwrapper);
@@ -71,6 +89,8 @@ public class AutoWrapper<T> implements EquivalentConverter<T> {
 	}
 
 	public T wrap(Object nmsObject) {
+		Preconditions.checkNotNull(nmsObject);
+
 		T instance;
 
 		try {
@@ -79,75 +99,79 @@ public class AutoWrapper<T> implements EquivalentConverter<T> {
 			throw new InvalidWrapperException(wrapperClass.getSimpleName() + " is not accessible!", ex);
 		}
 
-		Field[] wrapperFields = wrapperClass.getDeclaredFields();
-		Field[] nmsFields = Arrays
-				.stream(nmsClass.getDeclaredFields())
-				.filter(field -> !Modifier.isStatic(field.getModifiers()))
-				.toArray(Field[]::new);
+		// ensures that all accessors are present
+		computeFieldAccessors();
 
-		for (int i = 0; i < wrapperFields.length; i++) {
-			try {
-				Field wrapperField = wrapperFields[i];
+		for (int i = 0; i < wrapperAccessors.length; i++) {
+			FieldAccessor source = nmsAccessors[i];
+			FieldAccessor target = wrapperAccessors[i];
 
-				Field nmsField = nmsFields[i];
-				if (!nmsField.isAccessible())
-					nmsField.setAccessible(true);
+			Object value = source.get(nmsObject);
+			if (wrappers.containsKey(i))
+				value = wrappers.get(i).apply(value);
 
-				Object value = nmsField.get(nmsObject);
-				if (wrappers.containsKey(i))
-					value = wrappers.get(i).apply(value);
-
-				wrapperField.set(instance, value);
-			} catch (Exception ex) {
-				throw new InvalidWrapperException("Failed to wrap field at index " + i, ex);
-			}
+			target.set(instance, value);
 		}
 
 		return instance;
 	}
 
 	public Object unwrap(Object wrapper) {
-		Object instance;
+		Preconditions.checkNotNull(wrapper);
 
-		try {
-			instance = nmsClass.newInstance();
-		} catch (ReflectiveOperationException ex) {
-			throw new InvalidWrapperException("Failed to construct new " + nmsClass.getSimpleName(), ex);
-		}
+		// ensures that all accessors are present
+		computeFieldAccessors();
+		computeNmsConstructorAccess();
 
-		Field[] wrapperFields = wrapperClass.getDeclaredFields();
-		Field[] nmsFields = Arrays
-				.stream(nmsClass.getDeclaredFields())
-				.filter(field -> !Modifier.isStatic(field.getModifiers()))
-				.toArray(Field[]::new);
+		Object instance = nmsInstanceCreator.invoke(nmsDefaultArgs);
 
-		for (int i = 0; i < wrapperFields.length; i++) {
-			try {
-				Field wrapperField = wrapperFields[i];
+		for (int i = 0; i < wrapperAccessors.length; i++) {
+			FieldAccessor source = wrapperAccessors[i];
+			FieldAccessor target = nmsAccessors[i];
 
-				Field nmsField = nmsFields[i];
-				if (!nmsField.isAccessible())
-					nmsField.setAccessible(true);
-				if (Modifier.isFinal(nmsField.getModifiers()))
-					unsetFinal(nmsField);
+			Object value = source.get(wrapper);
+			if (unwrappers.containsKey(i))
+				value = unwrappers.get(i).apply(value);
 
-				Object value = wrapperField.get(wrapper);
-				if (unwrappers.containsKey(i))
-					value = unwrappers.get(i).apply(value);
-
-				nmsField.set(instance, value);
-			} catch (ReflectiveOperationException ex) {
-				throw new InvalidWrapperException("Failed to unwrap field", ex);
-			}
+			target.set(instance, value);
 		}
 
 		return instance;
 	}
 
-	private void unsetFinal(Field field) throws ReflectiveOperationException {
-		Field modifiers = Field.class.getDeclaredField("modifiers");
-		modifiers.setAccessible(true);
-		modifiers.setInt(field, field.getModifiers() & ~Modifier.FINAL);
+	private void computeFieldAccessors() {
+		if (nmsAccessors == null) {
+			nmsAccessors = Arrays
+					.stream(nmsClass.getDeclaredFields())
+					.filter(field -> !Modifier.isStatic(field.getModifiers()))
+					.map(Accessors::getFieldAccessor)
+					.toArray(FieldAccessor[]::new);
+		}
+
+		if (wrapperAccessors == null) {
+			wrapperAccessors = Arrays
+					.stream(wrapperClass.getDeclaredFields())
+					.map(Accessors::getFieldAccessor)
+					.toArray(FieldAccessor[]::new);
+		}
+	}
+
+	private void computeNmsConstructorAccess() {
+		if (nmsInstanceCreator == null) {
+			ConstructorAccessor noArgs = Accessors.getConstructorAccessorOrNull(nmsClass);
+			if (noArgs != null) {
+				// no args constructor is available - use it
+				nmsInstanceCreator = noArgs;
+				nmsDefaultArgs = NO_ARGS;
+			} else {
+				// use the first constructor of the class
+				nmsInstanceCreator = Accessors.getConstructorAccessor(nmsClass.getDeclaredConstructors()[0]);
+				nmsDefaultArgs = Arrays
+						.stream(nmsInstanceCreator.getConstructor().getParameterTypes())
+						.map(type -> type.isPrimitive() ? Defaults.defaultValue(type) : null)
+						.toArray(Object[]::new);
+			}
+		}
 	}
 
 	// ---- Equivalent conversion

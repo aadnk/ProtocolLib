@@ -3,23 +3,21 @@ package com.comphenix.protocol;
 import java.util.Collections;
 import java.util.List;
 
-import com.comphenix.protocol.reflect.FieldUtils;
-import com.comphenix.protocol.utility.Constants;
-import com.mojang.bridge.game.GameVersion;
-
+import com.comphenix.protocol.reflect.accessors.Accessors;
+import com.comphenix.protocol.reflect.accessors.FieldAccessor;
+import com.comphenix.protocol.utility.MinecraftReflectionTestUtil;
 import net.minecraft.SharedConstants;
 import net.minecraft.core.IRegistry;
 import net.minecraft.server.DispenserRegistry;
 import net.minecraft.server.level.WorldServer;
-
 import org.apache.logging.log4j.LogManager;
 import org.bukkit.Bukkit;
 import org.bukkit.Server;
 import org.bukkit.World;
-import org.bukkit.craftbukkit.v1_17_R1.CraftServer;
-import org.bukkit.craftbukkit.v1_17_R1.CraftWorld;
-import org.bukkit.craftbukkit.v1_17_R1.inventory.CraftItemFactory;
-import org.bukkit.craftbukkit.v1_17_R1.util.Versioning;
+import org.bukkit.craftbukkit.v1_19_R3.CraftServer;
+import org.bukkit.craftbukkit.v1_19_R3.CraftWorld;
+import org.bukkit.craftbukkit.v1_19_R3.inventory.CraftItemFactory;
+import org.bukkit.craftbukkit.v1_19_R3.util.Versioning;
 import org.spigotmc.SpigotWorldConfig;
 
 import static org.mockito.Mockito.mock;
@@ -31,30 +29,36 @@ import static org.mockito.Mockito.when;
  * @author Kristian
  */
 public class BukkitInitialization {
+
 	private static final BukkitInitialization instance = new BukkitInitialization();
+	private boolean initialized;
+	private boolean packaged;
 
 	private BukkitInitialization() {
 		System.out.println("Created new BukkitInitialization on " + Thread.currentThread().getName());
 	}
 
-	private boolean initialized;
-	private boolean packaged;
-
-	public static synchronized void initializePackage() {
-		instance.setPackage();
-	}
-
-	public static synchronized void initializeItemMeta() {
+	/**
+	 * Statically initializes the mock server for unit testing
+	 */
+	public static void initializeAll() {
 		instance.initialize();
 	}
 
+	private static final Object initLock = new Object();
+
 	/**
-	 * Initialize Bukkit and ProtocolLib such that we can perfrom unit testing
+	 * Initialize Bukkit and ProtocolLib such that we can perform unit testing
 	 */
 	private void initialize() {
-		if (!initialized) {
-			// Denote that we're done
-			initialized = true;
+		if (initialized) {
+			return;
+		}
+
+		synchronized (initLock) {
+			if (initialized) {
+				return;
+			}
 
 			try {
 				LogManager.getLogger();
@@ -63,10 +67,10 @@ public class BukkitInitialization {
 				ex.printStackTrace();
 			}
 
-			initializePackage();
+			instance.setPackage();
 
 			SharedConstants.a();
-			DispenserRegistry.init();
+			DispenserRegistry.a();
 
 			try {
 				IRegistry.class.getName();
@@ -74,12 +78,15 @@ public class BukkitInitialization {
 				ex.printStackTrace();
 			}
 
+			String releaseTarget = MinecraftReflectionTestUtil.RELEASE_TARGET;
+			String serverVersion = CraftServer.class.getPackage().getImplementationVersion();
+
 			// Mock the server object
 			Server mockedServer = mock(Server.class);
 
 			when(mockedServer.getLogger()).thenReturn(java.util.logging.Logger.getLogger("Minecraft"));
 			when(mockedServer.getName()).thenReturn("Mock Server");
-			when(mockedServer.getVersion()).thenReturn(CraftServer.class.getPackage().getImplementationVersion());
+			when(mockedServer.getVersion()).thenReturn(serverVersion + " (MC: " + releaseTarget + ")");
 			when(mockedServer.getBukkitVersion()).thenReturn(Versioning.getBukkitVersion());
 
 			when(mockedServer.getItemFactory()).thenReturn(CraftItemFactory.instance());
@@ -90,7 +97,8 @@ public class BukkitInitialization {
 			SpigotWorldConfig mockWorldConfig = mock(SpigotWorldConfig.class);
 
 			try {
-				FieldUtils.writeField(nmsWorld.getClass().getField("spigotConfig"), nmsWorld, mockWorldConfig, true);
+				FieldAccessor spigotConfig = Accessors.getFieldAccessor(nmsWorld.getClass().getField("spigotConfig"));
+				spigotConfig.set(nmsWorld, mockWorldConfig);
 			} catch (ReflectiveOperationException ex) {
 				throw new RuntimeException(ex);
 			}
@@ -103,6 +111,8 @@ public class BukkitInitialization {
 
 			// Inject this fake server
 			Bukkit.setServer(mockedServer);
+
+			initialized = true;
 		}
 	}
 
@@ -110,8 +120,8 @@ public class BukkitInitialization {
 	 * Ensure that package names are correctly set up.
 	 */
 	private void setPackage() {
-		if (!packaged) {
-			packaged = true;
+		if (!this.packaged) {
+			this.packaged = true;
 
 			try {
 				LogManager.getLogger();
@@ -120,7 +130,7 @@ public class BukkitInitialization {
 				ex.printStackTrace();
 			}
 
-			Constants.init();
+			MinecraftReflectionTestUtil.init();
 		}
 	}
 }

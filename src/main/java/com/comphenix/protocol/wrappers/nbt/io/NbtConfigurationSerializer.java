@@ -3,8 +3,7 @@ package com.comphenix.protocol.wrappers.nbt.io;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -19,8 +18,6 @@ import com.comphenix.protocol.wrappers.nbt.NbtList;
 import com.comphenix.protocol.wrappers.nbt.NbtType;
 import com.comphenix.protocol.wrappers.nbt.NbtVisitor;
 import com.comphenix.protocol.wrappers.nbt.NbtWrapper;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.common.primitives.Ints;
 
 /**
@@ -81,7 +78,7 @@ public class NbtConfigurationSerializer {
 			private List<Object> currentList;
 			
 			// Store the index of a configuration section that works like a list
-			private Map<ConfigurationSection, Integer> workingIndex = Maps.newHashMap();
+			private Map<ConfigurationSection, Integer> workingIndex = new HashMap<>();
 			
 			@Override
 			public boolean visitEnter(NbtCompound compound) {
@@ -99,7 +96,7 @@ public class NbtConfigurationSerializer {
 					current = current.createSection(name);
 					workingIndex.put(current, 0);
 				} else {
-					currentList = Lists.newArrayList();
+					currentList = new ArrayList<>();
 					current.set(name, currentList);
 				}
 				return true;
@@ -282,17 +279,10 @@ public class NbtConfigurationSerializer {
 	
 	private List<String> sortSet(Set<String> unsorted) {
 		// Convert to integers
-		List<String> sorted = new ArrayList<String>(unsorted);
-		
-		Collections.sort(sorted, new Comparator<String>() {
-			@Override
-			public int compare(String o1, String o2) {
-				// Parse the name
-				int index1 = Integer.parseInt(getDecodedName(o1)[0]);
-				int index2 = Integer.parseInt(getDecodedName(o2)[0]);
-				return Ints.compare(index1, index2);
-			}
-		});
+		final List<String> sorted = new ArrayList<>(unsorted);
+
+		// Parse the name and sort.
+		sorted.sort((o1, o2) -> Ints.compare(Integer.parseInt(getDecodedName(o1)[0]), Integer.parseInt(getDecodedName(o2)[0])));
 		return sorted;
 	}
 	

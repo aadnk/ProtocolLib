@@ -23,11 +23,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 
-import com.comphenix.protocol.PacketType;
-import com.google.common.collect.BiMap;
-import com.google.common.collect.HashBiMap;
-import com.google.common.collect.Sets;
-
 /**
  * Represents a more modern object-based enum.
  * <p>
@@ -37,7 +32,7 @@ import com.google.common.collect.Sets;
  */
 public class PacketTypeEnum implements Iterable<PacketType> {
 	// Used to convert between IDs and names
-	protected Set<PacketType> members = Sets.newHashSet();
+	protected Set<PacketType> members = new HashSet<>();
 
 	/**
 	 * Registers every declared PacketType field.
@@ -109,22 +104,6 @@ public class PacketTypeEnum implements Iterable<PacketType> {
 	 */
 	public boolean hasMember(PacketType member) {
 		return members.contains(member);
-	}
-	
-	/**
-	 * Retrieve a member by name,
-	 * @param name - name of member to retrieve.
-	 * @return The member, or NULL if not found.
-	 * @deprecated Don't use this
-	 */
-	@Deprecated
-	public PacketType valueOf(String name) {
-		for (PacketType member : members) {
-			if (member.name().equals(name))
-				return member;
-		}
-
-		return null;
 	}
 
 	/**

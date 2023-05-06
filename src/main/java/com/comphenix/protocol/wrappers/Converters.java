@@ -1,26 +1,34 @@
 /**
- *  ProtocolLib - Bukkit server library that allows access to the Minecraft protocol.
- *  Copyright (C) 2017 Dan Mulloy
- *
- *  This program is free software; you can redistribute it and/or modify it under the terms of the
- *  GNU General Public License as published by the Free Software Foundation; either version 2 of
- *  the License, or (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
- *  without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- *  See the GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License along with this program;
- *  if not, write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
- *  02111-1307 USA
+ * ProtocolLib - Bukkit server library that allows access to the Minecraft protocol. Copyright (C) 2017 Dan Mulloy
+ * <p>
+ * This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public
+ * License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later
+ * version.
+ * <p>
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ * <p>
+ * You should have received a copy of the GNU General Public License along with this program; if not, write to the Free
+ * Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 package com.comphenix.protocol.wrappers;
 
-import java.lang.reflect.Array;
-import java.util.function.Function;
-
 import com.comphenix.protocol.reflect.EquivalentConverter;
+import com.comphenix.protocol.reflect.FuzzyReflection;
+import com.comphenix.protocol.reflect.accessors.Accessors;
+import com.comphenix.protocol.reflect.accessors.MethodAccessor;
+import com.comphenix.protocol.reflect.fuzzy.FuzzyMethodContract;
 import com.comphenix.protocol.utility.MinecraftReflection;
+
+import java.lang.reflect.Array;
+import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * Utility class for converters
@@ -149,5 +157,172 @@ public class Converters {
 				return (Class<T[]>) MinecraftReflection.getArrayClass(converter.getSpecificType());
 			}
 		};
+	}
+
+	public static <T> EquivalentConverter<Optional<T>> optional(final EquivalentConverter<T> converter) {
+		return new EquivalentConverter<Optional<T>>() {
+			@Override
+			public Object getGeneric(Optional<T> specific) {
+				return specific.map(converter::getGeneric);
+			}
+
+			@Override
+			public Optional<T> getSpecific(Object generic) {
+				Optional<Object> optional = (Optional<Object>) generic;
+				return optional.map(converter::getSpecific);
+			}
+
+			@Override
+			public Class<Optional<T>> getSpecificType() {
+				return (Class<Optional<T>>) Optional.empty().getClass();
+			}
+		};
+	}
+
+	public static <T, C extends Collection<T>> EquivalentConverter<C> collection(
+			final EquivalentConverter<T> elementConverter,
+			final Function<Collection<Object>, C> genericToSpecificCollectionFactory,
+			final Function<C, Collection<?>> specificToGenericCollectionFactory
+	) {
+		return ignoreNull(new EquivalentConverter<C>() {
+
+			@Override
+			public Object getGeneric(C specific) {
+				// generics are very cool, thank you java
+				Collection<Object> targetCollection = (Collection<Object>) specificToGenericCollectionFactory.apply(specific);
+				for (T element : specific) {
+					Object generic = elementConverter.getGeneric(element);
+					if (generic != null) {
+						targetCollection.add(generic);
+					}
+				}
+
+				return targetCollection;
+			}
+
+			@Override
+			public C getSpecific(Object generic) {
+				if (generic instanceof Collection<?>) {
+					Collection<Object> sourceCollection = (Collection<Object>) generic;
+					C targetCollection = genericToSpecificCollectionFactory.apply(sourceCollection);
+					// copy over all elements into a new collection
+					for (Object element : sourceCollection) {
+						T specific = elementConverter.getSpecific(element);
+						if (specific != null) {
+							targetCollection.add(specific);
+						}
+					}
+
+					return targetCollection;
+				}
+				// not valid
+				return null;
+			}
+
+			@Override
+			public Class<C> getSpecificType() {
+				return (Class) Collection.class;
+			}
+		});
+	}
+
+	public static <T> EquivalentConverter<Iterable<T>> iterable(
+			final EquivalentConverter<T> elementConverter,
+			final Supplier<List<T>> specificCollectionFactory,
+			final Supplier<List<?>> genericCollectionFactory
+	) {
+		return ignoreNull(new EquivalentConverter<Iterable<T>>() {
+
+			@Override
+			public Object getGeneric(Iterable<T> specific) {
+				// generics are very cool, thank you java
+				List<Object> targetCollection = (List<Object>) genericCollectionFactory.get();
+				for (T element : specific) {
+					Object generic = elementConverter.getGeneric(element);
+					if (generic != null) {
+						targetCollection.add(generic);
+					}
+				}
+
+				return targetCollection;
+			}
+
+			@Override
+			public Iterable<T> getSpecific(Object generic) {
+				if (generic instanceof Iterable<?>) {
+					Iterable<Object> sourceCollection = (Iterable<Object>) generic;
+					List<T> targetCollection = specificCollectionFactory.get();
+					// copy over all elements into a new collection
+					for (Object element : sourceCollection) {
+						T specific = elementConverter.getSpecific(element);
+						if (specific != null) {
+							targetCollection.add(specific);
+						}
+					}
+
+					return targetCollection;
+				}
+				// not valid
+				return null;
+			}
+
+			@Override
+			public Class<Iterable<T>> getSpecificType() {
+				return (Class) Iterable.class;
+			}
+		});
+	}
+
+	private static MethodAccessor holderGetValue;
+
+	public static <T> EquivalentConverter<T> holder(final EquivalentConverter<T> converter,
+													final WrappedRegistry registry) {
+		return new EquivalentConverter<T>() {
+			@Override
+			public Object getGeneric(T specific) {
+				Object generic = converter.getGeneric(specific);
+				return registry.getHolder(generic);
+			}
+
+			@Override
+			public T getSpecific(Object generic) {
+				if (holderGetValue == null) {
+					Class<?> holderClass = MinecraftReflection.getHolderClass();
+					FuzzyReflection fuzzy = FuzzyReflection.fromClass(holderClass, false);
+					holderGetValue = Accessors.getMethodAccessor(fuzzy.getMethod(FuzzyMethodContract
+							.newBuilder()
+							.parameterCount(0)
+							.banModifier(Modifier.STATIC)
+							.returnTypeExact(Object.class)
+							.build()));
+				}
+
+				Object value = holderGetValue.invoke(generic);
+				return converter.getSpecific(value);
+			}
+
+			@Override
+			public Class<T> getSpecificType() {
+				return converter.getSpecificType();
+			}
+		};
+	}
+
+	public static <T> List<T> toList(Iterable<? extends T> iterable) {
+		if (iterable instanceof List) {
+			return (List<T>) iterable;
+		}
+
+		List<T> result = new ArrayList<>();
+		if (iterable instanceof Collection) {
+			Collection<T> coll = (Collection<T>) iterable;
+			result.addAll(coll);
+		} else {
+			for (T elem : iterable) {
+				result.add(elem);
+			}
+		}
+
+		return result;
 	}
 }

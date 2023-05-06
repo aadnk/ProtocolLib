@@ -1,14 +1,23 @@
 package com.comphenix.protocol.utility;
 
-import java.lang.reflect.Field;
-import java.util.List;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import sun.misc.Unsafe;
+import com.comphenix.protocol.reflect.accessors.Accessors;
+import java.lang.reflect.Field;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.time.Instant;
+import java.util.List;
+import java.util.Random;
+import java.util.UUID;
+
+import com.comphenix.protocol.wrappers.WrappedProfilePublicKey;
+import com.comphenix.protocol.wrappers.WrappedRemoteChatSessionData;
 import org.bukkit.Bukkit;
 import org.bukkit.inventory.ItemStack;
-
-import static org.junit.Assert.*;
-import static org.junit.Assert.assertEquals;
 
 public class TestUtils {
 
@@ -45,12 +54,20 @@ public class TestUtils {
 		}
 	}
 
-	public static void setFinalField(Object obj, Field field, Object newValue) throws ReflectiveOperationException {
-		Field unsafeField = Unsafe.class.getDeclaredField("theUnsafe");
-		unsafeField.setAccessible(true);
-		Unsafe unsafe = (Unsafe) unsafeField.get(null);
+	public static void setFinalField(Object obj, Field field, Object newValue) {
+		Accessors.getFieldAccessor(field).set(obj, newValue);
+	}
 
-		long offset = unsafe.objectFieldOffset(field);
-		unsafe.putObject(obj, offset, newValue);
+	public static KeyPair generateKeyPair() throws Exception {
+		KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+		keyPairGenerator.initialize(1024);
+		return keyPairGenerator.generateKeyPair();
+	}
+
+	public static WrappedRemoteChatSessionData creteDummyRemoteChatSessionData() throws Exception {
+		byte[] signature = new byte[256];
+		new Random().nextBytes(signature);
+
+		return new WrappedRemoteChatSessionData(UUID.randomUUID(), new WrappedProfilePublicKey.WrappedProfileKeyData(Instant.now(), TestUtils.generateKeyPair().getPublic(), signature));
 	}
 }

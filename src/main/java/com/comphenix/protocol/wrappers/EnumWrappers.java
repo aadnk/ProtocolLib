@@ -1,5 +1,6 @@
 package com.comphenix.protocol.wrappers;
 
+import com.comphenix.protocol.reflect.ExactReflection;
 import java.lang.reflect.Field;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -12,7 +13,6 @@ import com.comphenix.protocol.reflect.FuzzyReflection;
 import com.comphenix.protocol.reflect.accessors.Accessors;
 import com.comphenix.protocol.utility.MinecraftVersion;
 import com.comphenix.protocol.utility.MinecraftReflection;
-import com.google.common.collect.Maps;
 
 import org.apache.commons.lang.Validate;
 import org.bukkit.GameMode;
@@ -65,6 +65,7 @@ public abstract class EnumWrappers {
 		/**
 		 * @deprecated Replaced by NOT_SET
 		 */
+		@Deprecated
 		NONE;
 
 		/**
@@ -120,9 +121,15 @@ public abstract class EnumWrappers {
 
 	public enum PlayerInfoAction {
 		ADD_PLAYER,
+		INITIALIZE_CHAT,
 		UPDATE_GAME_MODE,
+		UPDATE_LISTED,
 		UPDATE_LATENCY,
 		UPDATE_DISPLAY_NAME,
+		/**
+		 * @deprecated Removed in 1.19.3
+		 */
+		@Deprecated
 		REMOVE_PLAYER
 	}
 
@@ -371,9 +378,9 @@ public abstract class EnumWrappers {
 	
 	/**
 	 * Wrapped EntityPose enum for use in Entity Metadata Packet.<br>
-	 * 
-	 * @apiNote Remember to use {@link #toNms()} when adding to a {@link WrappedDataWatcher}. <br>
-	 *          Serializer is obtained using Registry.get(EnumWrappers.getEntityPoseClass())
+	 * Remember to use {@link #toNms()} when adding to a {@link WrappedDataWatcher}. <br>
+	 * Serializer is obtained using Registry.get(EnumWrappers.getEntityPoseClass())
+	 *
 	 * @since 1.13
 	 * @author Lewys Davies (Lew_)
 	 */
@@ -384,8 +391,16 @@ public abstract class EnumWrappers {
 		SWIMMING, 
 		SPIN_ATTACK, 
 		CROUCHING,
-		DYING;
-		
+		LONG_JUMPING,
+		DYING,
+		CROAKING,
+		USING_TONGUE,
+		SITTING,
+		ROARING,
+		SNIFFING,
+		EMERGING,
+		DIGGING;
+
 		private final static EquivalentConverter<EntityPose> POSE_CONVERTER = EnumWrappers.getEntityPoseConverter();
 		
 		/**
@@ -393,7 +408,7 @@ public abstract class EnumWrappers {
 		 * @return Wrapped {@link EntityPose}
 		 */
 		public static EntityPose fromNms(Object nms) {
-			if(POSE_CONVERTER == null) {
+			if (POSE_CONVERTER == null) {
 				throw new IllegalStateException("EntityPose is only available in Minecraft version 1.13 +");
 			}
 			return POSE_CONVERTER.getSpecific(nms);
@@ -401,7 +416,7 @@ public abstract class EnumWrappers {
 		
 		/** @return net.minecraft.server.EntityPose enum equivalent to this wrapper enum */
 		public Object toNms() {
-			if(POSE_CONVERTER == null) {
+			if (POSE_CONVERTER == null) {
 				throw new IllegalStateException("EntityPose is only available in Minecraft version 1.13 +");
 			}
 			return POSE_CONVERTER.getGeneric(this);
@@ -456,16 +471,15 @@ public abstract class EnumWrappers {
 	private static Class<?> ENTITY_POSE_CLASS = null;
 
 	private static boolean INITIALIZED = false;
-	private static Map<Class<?>, EquivalentConverter<?>> FROM_NATIVE = Maps.newHashMap();
-	private static Map<Class<?>, EquivalentConverter<?>> FROM_WRAPPER = Maps.newHashMap();
+	private static Map<Class<?>, EquivalentConverter<?>> FROM_NATIVE = new HashMap<>();
+	private static Map<Class<?>, EquivalentConverter<?>> FROM_WRAPPER = new HashMap<>();
 	static Set<String> INVALID = new HashSet<>();
 
 	/**
 	 * Initialize the wrappers, if we haven't already.
 	 */
 	private static void initialize() {
-		if (!MinecraftReflection.isUsingNetty())
-			throw new IllegalArgumentException("Not supported on 1.6.4 and earlier.");
+
 
 		if (INITIALIZED)
 			return;
@@ -484,7 +498,6 @@ public abstract class EnumWrappers {
 
 		GAMEMODE_CLASS = getEnum(PacketType.Play.Server.LOGIN.getPacketClass(), 0);
 		RESOURCE_PACK_STATUS_CLASS = getEnum(PacketType.Play.Client.RESOURCE_PACK_STATUS.getPacketClass(), 0);
-		PLAYER_INFO_ACTION_CLASS = getEnum(PacketType.Play.Server.PLAYER_INFO.getPacketClass(), 0);
 		TITLE_ACTION_CLASS = getEnum(PacketType.Play.Server.TITLE.getPacketClass(), 0);
 		WORLD_BORDER_ACTION_CLASS = getEnum(PacketType.Play.Server.WORLD_BORDER.getPacketClass(), 0);
 		COMBAT_EVENT_TYPE_CLASS = getEnum(PacketType.Play.Server.COMBAT_EVENT.getPacketClass(), 0);
@@ -492,18 +505,29 @@ public abstract class EnumWrappers {
 		PLAYER_ACTION_CLASS = getEnum(PacketType.Play.Client.ENTITY_ACTION.getPacketClass(), 0);
 		SCOREBOARD_ACTION_CLASS = getEnum(PacketType.Play.Server.SCOREBOARD_SCORE.getPacketClass(), 0);
 		PARTICLE_CLASS = getEnum(PacketType.Play.Server.WORLD_PARTICLES.getPacketClass(), 0);
-		SOUND_CATEGORY_CLASS = getEnum(PacketType.Play.Server.CUSTOM_SOUND_EFFECT.getPacketClass(), 0);
+
+		PLAYER_INFO_ACTION_CLASS = getEnum(PacketType.Play.Server.PLAYER_INFO.getPacketClass(), 0);
+		if (PLAYER_INFO_ACTION_CLASS == null) {
+			// todo: we can also use getField(0).getGenericType().getTypeParameters()[0]; but this should hold for now
+			PLAYER_INFO_ACTION_CLASS = PacketType.Play.Server.PLAYER_INFO.getPacketClass().getClasses()[1];
+		}
+
+		try {
+			SOUND_CATEGORY_CLASS = MinecraftReflection.getMinecraftClass("sounds.SoundCategory");
+		} catch (Exception ex) {
+			SOUND_CATEGORY_CLASS = getEnum(PacketType.Play.Server.NAMED_SOUND_EFFECT.getPacketClass(), 0);
+		}
 
 		try {
 			// TODO enum names are more stable than their packet associations
-			ITEM_SLOT_CLASS = MinecraftReflection.getMinecraftClass("world.entity.EnumItemSlot", "EnumItemSlot");
+			ITEM_SLOT_CLASS = MinecraftReflection.getMinecraftClass("world.entity.EnumItemSlot", "world.entity.EquipmentSlot", "EnumItemSlot");
 		} catch (Exception ex) {
 			ITEM_SLOT_CLASS = getEnum(PacketType.Play.Server.ENTITY_EQUIPMENT.getPacketClass(), 0);
 		}
 
 		// In 1.17 the hand and use action class is no longer a field in the packet
 		if (MinecraftVersion.CAVES_CLIFFS_1.atOrAbove()) {
-			HAND_CLASS = MinecraftReflection.getMinecraftClass("world.EnumHand");
+			HAND_CLASS = MinecraftReflection.getMinecraftClass("world.EnumHand", "world.InteractionHand");
 			// class is named 'b' in the packet but class order differs in spigot and paper so we can only use the first method's return type (safest way)
 			ENTITY_USE_ACTION_CLASS = MinecraftReflection.getEnumEntityUseActionClass().getMethods()[0].getReturnType();
 		} else {
@@ -511,11 +535,17 @@ public abstract class EnumWrappers {
 			ENTITY_USE_ACTION_CLASS = getEnum(PacketType.Play.Client.USE_ENTITY.getPacketClass(), 0);
 		}
 
-		DIRECTION_CLASS = getEnum(PacketType.Play.Server.SPAWN_ENTITY_PAINTING.getPacketClass(), 0);
-		CHAT_TYPE_CLASS = getEnum(PacketType.Play.Server.CHAT.getPacketClass(), 0);
-		ENTITY_POSE_CLASS = MinecraftReflection.getNullableNMS("world.entity.EntityPose", "EntityPose");
+		// 1.19 removed the entity spawn packet and moved the direction into a seperated class
+		if (MinecraftVersion.WILD_UPDATE.atOrAbove()) {
+			DIRECTION_CLASS = MinecraftReflection.getMinecraftClass("core.EnumDirection", "core.Direction");
+		} else {
+			DIRECTION_CLASS = getEnum(PacketType.Play.Server.SPAWN_ENTITY_PAINTING.getPacketClass(), 0);
+		}
 
-		associate(PROTOCOL_CLASS, Protocol.class, getClientCommandConverter());
+		CHAT_TYPE_CLASS = getEnum(PacketType.Play.Server.CHAT.getPacketClass(), 0);
+		ENTITY_POSE_CLASS = MinecraftReflection.getNullableNMS("world.entity.EntityPose", "world.entity.Pose", "EntityPose");
+
+		associate(PROTOCOL_CLASS, Protocol.class, getProtocolConverter());
 		associate(CLIENT_COMMAND_CLASS, ClientCommand.class, getClientCommandConverter());
 		associate(CHAT_VISIBILITY_CLASS, ChatVisibility.class, getChatVisibilityConverter());
 		associate(DIFFICULTY_CLASS, Difficulty.class, getDifficultyConverter());
@@ -557,12 +587,19 @@ public abstract class EnumWrappers {
 	 * @return The type of the enum field.
 	 */
 	private static Class<?> getEnum(Class<?> clazz, int index) {
-		try {
-			return FuzzyReflection.fromClass(clazz, true).getFieldListByType(Enum.class).get(index).getType();
-		} catch (Throwable ex) {
-			ProtocolLogger.debug("Exception getting enum from " + clazz + " at index " + index, ex);
+		if (clazz == null) {
+			// not supported in the current version
 			return null;
 		}
+
+		List<Field> enumFields = FuzzyReflection.fromClass(clazz, true).getFieldListByType(Enum.class);
+		if (enumFields.size() <= index) {
+			// also probably not supported
+			ProtocolLogger.debug("Enum field not found at index {0} of {1}", index, clazz);
+			return null;
+		}
+
+		return enumFields.get(index).getType();
 	}
 
 	public static Map<Class<?>, EquivalentConverter<?>> getFromNativeMap() {
@@ -765,7 +802,7 @@ public abstract class EnumWrappers {
 	 * @return {@link EnumConverter} or null (if bellow 1.13 / nms EnumPose class cannot be found)
 	 */
 	public static EquivalentConverter<EntityPose> getEntityPoseConverter() {
-		if(getEntityPoseClass() == null) return null;
+		if (getEntityPoseClass() == null) return null;
 		return new EnumConverter<>(getEntityPoseClass(), EntityPose.class);
 	}
 
@@ -780,21 +817,27 @@ public abstract class EnumWrappers {
 	}
 
 	/**
-	 * @deprecated Replaced with {@link #getGenericConverter(Class, Class)}
+	 * Creates an enum set with no elements based off the given class. The given must be an enum.
+	 *
+	 * @param clazz the element type of the enum set
+	 * @return a new enum set with the given class as its element type
+	 * @throws ClassCastException if the given class is not an enum
 	 */
-	@Deprecated
-	public static <T extends Enum<T>> EquivalentConverter<T> getGenericConverter(Class<T> specificType) {
-		return new EnumConverter<>(null, specificType);
+	public static <E extends Enum<E>> EnumSet<E> createEmptyEnumSet(Class<?> clazz) {
+		return EnumSet.noneOf((Class<E>) clazz);
 	}
 
 	/**
 	 * The common Enum converter
 	 */
 	public static class EnumConverter<T extends Enum<T>> implements EquivalentConverter<T> {
-		private Class<?> genericType;
-		private Class<T> specificType;
+		private final Class<?> genericType;
+		private final Class<T> specificType;
 
 		public EnumConverter(Class<?> genericType, Class<T> specificType) {
+			Validate.notNull(specificType, "specificType cannot be null");
+			// would love to check if genericType is null, but it breaks other stuff
+
 			this.genericType = genericType;
 			this.specificType = specificType;
 		}
@@ -812,10 +855,6 @@ public abstract class EnumWrappers {
 		@Override
 		public Class<T> getSpecificType() {
 			return specificType;
-		}
-
-		void setGenericType(Class<?> genericType) {
-			this.genericType = genericType;
 		}
 	}
 
@@ -909,10 +948,8 @@ public abstract class EnumWrappers {
 		public Object getGeneric(T specific) {
 			Validate.notNull(specific, "specific object cannot be null");
 
-			return Accessors
-					.getFieldAccessor(genericClass, specific
-							.name(), false)
-					.get(null);
+			Field field = ExactReflection.fromClass(this.genericClass, false).findField(specific.name());
+			return Accessors.getFieldAccessor(field).get(null);
 		}
 
 		@Override

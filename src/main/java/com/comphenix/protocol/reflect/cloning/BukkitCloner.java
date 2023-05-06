@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -29,17 +30,16 @@ import com.comphenix.protocol.reflect.StructureModifier;
 import com.comphenix.protocol.utility.MinecraftReflection;
 import com.comphenix.protocol.wrappers.*;
 import com.comphenix.protocol.wrappers.nbt.NbtFactory;
-import com.google.common.collect.Maps;
 
 import net.md_5.bungee.api.chat.BaseComponent;
 
 /**
  * Represents an object that can clone a specific list of Bukkit- and Minecraft-related objects.
- * 
+ *
  * @author Kristian
  */
 public class BukkitCloner implements Cloner {
-	private static final Map<Class<?>, Function<Object, Object>> CLONERS = Maps.newConcurrentMap();
+	private static final Map<Class<?>, Function<Object, Object>> CLONERS = new ConcurrentHashMap<>();
 
 	private static void fromWrapper(Supplier<Class<?>> getClass, Function<Object, ClonableWrapper> fromHandle) {
 		try {
@@ -74,7 +74,6 @@ public class BukkitCloner implements Cloner {
 				MinecraftReflection.getMinecraftItemStack(MinecraftReflection.getBukkitItemStack(source).clone()));
 		fromWrapper(MinecraftReflection::getDataWatcherClass, WrappedDataWatcher::new);
 		fromConverter(MinecraftReflection::getBlockPositionClass, BlockPosition.getConverter());
-		fromConverter(MinecraftReflection::getChunkPositionClass, ChunkPosition.getConverter());
 		fromWrapper(MinecraftReflection::getServerPingClass, WrappedServerPing::fromHandle);
 		fromConverter(MinecraftReflection::getMinecraftKeyClass, MinecraftKey.getConverter());
 		fromWrapper(MinecraftReflection::getIBlockDataClass, WrappedBlockData::fromHandle);
@@ -90,8 +89,7 @@ public class BukkitCloner implements Cloner {
 		} catch (Throwable ignored) { }
 
 		try {
-			fromManual(AdventureComponentConverter::getComponentClass, source ->
-					AdventureComponentConverter.clone(source));
+			fromManual(AdventureComponentConverter::getComponentClass, AdventureComponentConverter::clone);
 		} catch (Throwable ignored) { }
 	}
 
@@ -132,7 +130,7 @@ public class BukkitCloner implements Cloner {
 
 			@Override
 			public Object clone(Object source) {
-				StructureModifier<Object> modifier = new StructureModifier<>(source.getClass(), true).withTarget(source);
+				StructureModifier<Object> modifier = new StructureModifier<>(source.getClass()).withTarget(source);
 				List<?> list = (List<?>) modifier.read(0);
 				Object empty = modifier.read(1);
 
