@@ -18,7 +18,7 @@
 
 		<junit.version>5.9.2</junit.version>
 		<mockito.version>4.11.0</mockito.version>
-		<netty.version>4.1.77.Final</netty.version>
+		<netty.version>4.1.115.Final</netty.version>
 		<spigot.version>1.19.4-R0.1-SNAPSHOT</spigot.version>
 	</properties>
 
